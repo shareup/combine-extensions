@@ -10,6 +10,9 @@ let package = Package(
         .library(
             name: "CombineExtensions",
             targets: ["CombineExtensions"]),
+        .library(
+            name: "CombineTestExtensions",
+            targets: ["CombineTestExtensions"]),
     ],
     dependencies: [
         .package(
@@ -22,8 +25,11 @@ let package = Package(
         .target(
             name: "CombineExtensions",
             dependencies: ["Synchronized"]),
+        .target(
+            name: "CombineTestExtensions",
+            dependencies: ["CombineExtensions", "Synchronized"]),
         .testTarget(
             name: "CombineExtensionsTests",
-            dependencies: ["CombineExtensions"]),
+            dependencies: ["CombineExtensions", "CombineTestExtensions"]),
     ]
 )

@@ -1,7 +1,6 @@
-#if canImport(XCTest)
-
 import Foundation
 import Combine
+import CombineExtensions
 import XCTest
 
 public extension Publisher where Output: Equatable {
@@ -357,5 +356,3 @@ private class _Expectation: XCTestExpectation {
         }
     }
 }
-
-#endif

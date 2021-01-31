@@ -1,5 +1,6 @@
 import Combine
 import CombineExtensions
+import CombineTestExtensions
 import XCTest
 
 class ReduceLatestTests: XCTestCase {
