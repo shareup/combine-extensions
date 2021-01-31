@@ -1,3 +1,5 @@
+#if canImport(XCTest)
+
 import Foundation
 import Combine
 import XCTest
@@ -355,3 +357,5 @@ private class _Expectation: XCTestExpectation {
         }
     }
 }
+
+#endif
