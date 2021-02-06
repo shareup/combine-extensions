@@ -12,6 +12,7 @@ let package = Package(
             targets: ["CombineExtensions"]),
         .library(
             name: "CombineTestExtensions",
+            type: .dynamic,
             targets: ["CombineTestExtensions"]),
     ],
     dependencies: [
