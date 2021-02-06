@@ -28,7 +28,7 @@ let package = Package(
             dependencies: ["Synchronized"]),
         .target(
             name: "CombineTestExtensions",
-            dependencies: ["CombineExtensions"]),
+            dependencies: []),
         .testTarget(
             name: "CombineExtensionsTests",
             dependencies: ["CombineExtensions", "CombineTestExtensions"]),

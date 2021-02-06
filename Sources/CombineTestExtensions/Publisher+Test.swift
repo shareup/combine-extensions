@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import CombineExtensions
 import XCTest
 
 public extension Publisher where Output: Equatable {
@@ -90,17 +89,18 @@ public extension Publisher {
         let description = description ?? "Should have received values \(count) times"
         let ex = _Expectation(description: description)
         ex.expectedFulfillmentCount = count
-        let token = sink { (_) in
-            ex.fulfill()
-        } receiveCompletion: { (completion) in
-            if failsOnCompletion {
-                XCTFail(
-                    "Should not have completed: '\(String(describing: completion))'",
-                    file: file,
-                    line: line
-                )
-            }
-        }
+        let token = sink(
+            receiveCompletion: { (completion) in
+                if failsOnCompletion {
+                    XCTFail(
+                        "Should not have completed: '\(String(describing: completion))'",
+                        file: file,
+                        line: line
+                    )
+                }
+            },
+            receiveValue: { _ in ex.fulfill() }
+        )
         ex.token = token
         return ex
     }
@@ -198,88 +198,90 @@ private extension Publisher {
             ex.expectedFulfillmentCount = 2
         }
 
-        let token = sink { (output) in
-            Swift.print(output)
-            switch expectedOutput {
-            case .any:
-                break
-            case .none:
-                XCTFail("Should not have received any output", file: file, line: line)
-            case var .values(expectedValues):
-                guard !expectedValues.isEmpty else {
-                    if ex.assertForOverFulfill {
-                        XCTFail(
-                            "Received unexpected output: '\(String(describing: output))'",
-                            file: file,
-                            line: line
-                        )
-                    }
-                    return
-                }
+        let token = sink(
+            receiveCompletion: { (completion) in
+                switch (expectedCompletion, completion) {
+                case (.any, _):
+                    break
 
-                let expected = expectedValues.removeFirst()
-                XCTAssertTrue(
-                    outputComparator(expected, output),
-                    file: file,
-                    line: line)
+                case (.none, _):
+                    XCTFail(
+                        "Should not have completed: '\(String(describing: completion))'",
+                        file: file,
+                        line: line
+                    )
 
-                expectedOutput = .values(expectedValues)
-                if expectedValues.isEmpty {
+                case (.finished, .finished):
+                    ex.fulfill()
+
+                case let (.failure(expectedError), .failure(receivedError)):
+                    XCTAssertTrue(
+                        failureComparator(expectedError, receivedError),
+                        file: file,
+                        line: line
+                    )
+                    ex.fulfill()
+
+                case (.anyFailure, .failure):
+                    ex.fulfill()
+
+                case let (.finished, .failure(receivedError)):
+                    XCTFail(
+                        "Should not have received failure: \(String(describing: receivedError))",
+                        file: file,
+                        line: line
+                    )
+                    ex.fulfill()
+
+                case let (.failure(expectedError), .finished):
+                    XCTFail(
+                        "Should have received failure: \(String(describing: expectedError))",
+                        file: file,
+                        line: line
+                    )
+                    ex.fulfill()
+
+                case (.anyFailure, .finished):
+                    XCTFail(
+                        "Should have received failure",
+                        file: file,
+                        line: line
+                    )
                     ex.fulfill()
                 }
+            },
+            receiveValue: { (output) in
+                Swift.print(output)
+                switch expectedOutput {
+                case .any:
+                    break
+                case .none:
+                    XCTFail("Should not have received any output", file: file, line: line)
+                case var .values(expectedValues):
+                    guard !expectedValues.isEmpty else {
+                        if ex.assertForOverFulfill {
+                            XCTFail(
+                                "Received unexpected output: '\(String(describing: output))'",
+                                file: file,
+                                line: line
+                            )
+                        }
+                        return
+                    }
+                    
+                    let expected = expectedValues.removeFirst()
+                    XCTAssertTrue(
+                        outputComparator(expected, output),
+                        file: file,
+                        line: line)
+
+                    expectedOutput = .values(expectedValues)
+                    if expectedValues.isEmpty {
+                        ex.fulfill()
+                    }
+                }
             }
-        } receiveCompletion: { (completion) in
-            Swift.print(completion)
-            switch (expectedCompletion, completion) {
-            case (.any, _):
-                break
-
-            case (.none, _):
-                XCTFail(
-                    "Should not have completed: '\(String(describing: completion))'",
-                    file: file,
-                    line: line
-                )
-
-            case (.finished, .finished):
-                ex.fulfill()
-
-            case let (.failure(expectedError), .failure(receivedError)):
-                XCTAssertTrue(
-                    failureComparator(expectedError, receivedError),
-                    file: file,
-                    line: line
-                )
-                ex.fulfill()
-
-            case (.anyFailure, .failure):
-                ex.fulfill()
-
-            case let (.finished, .failure(receivedError)):
-                XCTFail(
-                    "Should not have received failure: \(String(describing: receivedError))",
-                    file: file,
-                    line: line
-                )
-                ex.fulfill()
-
-            case let (.failure(expectedError), .finished):
-                XCTFail(
-                    "Should have received failure: \(String(describing: expectedError))",
-                    file: file,
-                    line: line
-                )
-                ex.fulfill()
-
-            case (.anyFailure, .finished):
-                XCTFail(
-                    "Should have received failure",
-                    file: file,
-                    line: line
-                )
-                ex.fulfill()
-            }
-        }
+        )
         ex.token = token
         return ex
     }
