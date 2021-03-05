@@ -56,6 +56,21 @@ class BufferPassthroughSubjectTests: XCTestCase {
         wait(for: [bufferEx, passthroughEx], timeout: 2)
     }
 
+    func testDoesNotPassThroughValuesReceivedAfterFailure() throws {
+        let subject = BufferPassthroughSubject<Int, TestError>()
+
+        subject.send(completion: .failure(.error))
+        subject.send(0)
+
+        let bufferEx = subject.expectFailure(.error, failsOnOutput: true)
+
+        subject.send(1)
+
+        let noOutputEx = subject.expectFailure(.error, failsOnOutput: true)
+
+        wait(for: [bufferEx, noOutputEx], timeout: 0.1)
+    }
+
     func testPassesThroughOnlyBufferedValuesReceivedBeforeCompletion() throws {
         let subject = BufferPassthroughSubject<Int, TestError>()
 
