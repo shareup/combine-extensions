@@ -56,26 +56,6 @@ public extension Publisher where Output: Equatable {
     }
 }
 
-public extension Publisher where Failure: Equatable {
-    func expectFailure(
-        _ expectedFailure: Failure,
-        failsOnOutput: Bool = false,
-        description: String? = nil,
-        file: StaticString = #file,
-        line: UInt = #line
-    )  -> XCTestExpectation {
-        _expectOutput(
-            failsOnOutput ? .none : .any,
-            outputComparator: { _, _ in fatalError() },
-            completion: .failure(expectedFailure),
-            failureComparator: { $0 == $1 },
-            description: description,
-            file: file,
-            line: line
-        )
-    }
-}
-
 public extension Publisher where Output: Equatable, Failure: Equatable {
     func expectOutput(
         _ expectedOutput: [Output],
@@ -192,6 +172,24 @@ public extension Publisher {
             outputComparator: { _, _ in fatalError() },
             completion: .failure(expectedFailure),
             failureComparator: failureComparator,
+            description: description,
+            file: file,
+            line: line
+        )
+    }
+
+    func expectFailure(
+        _ expectedFailure: Failure,
+        failsOnOutput: Bool = false,
+        description: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCTestExpectation where Failure: Equatable {
+        _expectOutput(
+            failsOnOutput ? .none : .any,
+            outputComparator: { _, _ in fatalError() },
+            completion: .failure(expectedFailure),
+            failureComparator: ==,
             description: description,
             file: file,
             line: line
