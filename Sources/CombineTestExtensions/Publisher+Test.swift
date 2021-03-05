@@ -28,8 +28,26 @@ public extension Publisher where Output: Equatable {
     ) -> XCTestExpectation {
         _expectOutput(
             .values(expectedOutput),
-            outputComparator: { $0 == $1 },
+            outputComparator: ==,
             completion: failsOnCompletion ? .none : .any,
+            failureComparator: { _, _ in fatalError() },
+            description: description,
+            file: file,
+            line: line
+        )
+    }
+
+    func expectOutput(
+        _ expectedOutput: [Output],
+        expectToFinish: Bool,
+        description: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCTestExpectation {
+        _expectOutput(
+            .values(expectedOutput),
+            outputComparator: ==,
+            completion: expectToFinish ? .finished : .any,
             failureComparator: { _, _ in fatalError() },
             description: description,
             file: file,
@@ -68,9 +86,9 @@ public extension Publisher where Output: Equatable, Failure: Equatable {
     ) -> XCTestExpectation {
         _expectOutput(
             .values(expectedOutput),
-            outputComparator: { $0 == $1 },
+            outputComparator: ==,
             completion: _Completion(expectedCompletion),
-            failureComparator: { $0 == $1 },
+            failureComparator: ==,
             description: description,
             file: file,
             line: line
@@ -251,7 +269,6 @@ private extension Publisher {
                 }
             },
             receiveValue: { (output) in
-                Swift.print(output)
                 switch expectedOutput {
                 case .any:
                     break
