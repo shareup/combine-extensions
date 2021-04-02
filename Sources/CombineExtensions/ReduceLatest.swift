@@ -219,14 +219,13 @@ private final class ReduceLatestSubscription<Subscriber, A, B, C, D, Output, Fai
     }
 
     private func complete(with completion: Subscribers.Completion<Failure>) {
-        let subscriber = lock.locked { () -> Subscriber? in
+        lock.locked {
             let sub = self.subscriber
             self.subscriber = nil
             completions.removeAll()
             tokens.removeAll()
-            return sub
+            sub?.receive(completion: completion)
         }
-        subscriber?.receive(completion: completion)
     }
 
     private func receiveA(_ input: A.Output) {
