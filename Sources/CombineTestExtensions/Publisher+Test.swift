@@ -20,6 +20,22 @@ public extension Publisher where Output: Equatable {
     }
 
     func expectOutput(
+        _ expectedOutput: Output,
+        expectToFinish: Bool,
+        description: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCTestExpectation {
+        expectOutput(
+            [expectedOutput],
+            expectToFinish: expectToFinish,
+            description: description,
+            file: file,
+            line: line
+        )
+    }
+
+    func expectOutput(
         _ expectedOutput: [Output],
         failsOnCompletion: Bool = false,
         description: String? = nil,

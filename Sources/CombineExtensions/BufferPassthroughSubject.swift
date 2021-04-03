@@ -21,51 +21,49 @@ public final class BufferPassthroughSubject<Output, Failure: Error>: Subject {
     public init() {}
 
     public func send(_ value: Output) {
-        locked {
+        lock.locked {
             switch state {
             case var .buffering(buffer):
                 buffer.append(value)
                 state = .buffering(buffer)
-                return nil
             case .passingThrough:
-                return { self.subject.send(value) }
+                self.subject.send(value)
             case .bufferingAfterReceivingCompletion:
                 // Do not buffer any more values after receiving completion
-                return nil
+                break
             case .completed:
-                return nil
+                break
             }
         }
     }
 
     public func send(completion: Subscribers.Completion<Failure>) {
-        locked {
+        lock.locked {
             switch state {
             case let .buffering(buffer):
                 state = .bufferingAfterReceivingCompletion(buffer, completion)
-                return nil
             case .passingThrough:
                 state = .completed
-                return { self.subject.send(completion: completion) }
+                self.subject.send(completion: completion)
             case .bufferingAfterReceivingCompletion:
-                return nil
+                break
             case .completed:
-                return { self.subject.send(completion: completion) }
+                self.subject.send(completion: completion)
             }
         }
     }
 
     public func send(subscription: Subscription) {
-        locked {
+        lock.locked {
             switch state {
             case .buffering:
-                return { self.subject.send(subscription: subscription) }
+                self.subject.send(subscription: subscription)
             case .passingThrough:
-                return { self.subject.send(subscription: subscription) }
+                self.subject.send(subscription: subscription)
             case .bufferingAfterReceivingCompletion:
-                return { self.subject.send(subscription: subscription) }
+                self.subject.send(subscription: subscription)
             case .completed:
-                return { self.subject.send(subscription: subscription) }
+                self.subject.send(subscription: subscription)
             }
         }
     }
@@ -73,28 +71,22 @@ public final class BufferPassthroughSubject<Output, Failure: Error>: Subject {
     public func receive<S: Subscriber>(
         subscriber: S
     ) where Failure == S.Failure, Output == S.Input {
-        locked {
+        lock.locked {
             switch state {
             case let .buffering(buffer):
                 subject.receive(subscriber: subscriber)
                 buffer.forEach { self.subject.send($0) }
                 self.state = .passingThrough
-                return nil
             case .passingThrough:
-                return { self.subject.receive(subscriber: subscriber) }
+                self.subject.receive(subscriber: subscriber)
             case let .bufferingAfterReceivingCompletion(buffer, completion):
                 subject.receive(subscriber: subscriber)
                 buffer.forEach { self.subject.send($0) }
                 state = .completed
-                return { self.subject.send(completion: completion) }
+                self.subject.send(completion: completion)
             case .completed:
-                return { self.subject.receive(subscriber: subscriber) }
+                self.subject.receive(subscriber: subscriber)
             }
         }
-    }
-
-    private func locked(_ block: () -> (() -> Void)?) {
-        let action = lock.locked { block() }
-        action?()
     }
 }
