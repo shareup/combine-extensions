@@ -199,6 +199,7 @@ private final class ReduceLatestSubscription<Subscriber, A, B, C, D, Output, Fai
     }
 
     func cancel() {
+        lock.locked { subscriber = nil }
         complete(with: .finished)
     }
 

@@ -96,6 +96,7 @@ private final class InputStreamSubscription<S: Subscriber>: Subscription
     }
 
     func cancel() {
+        lock.locked { subscriber = nil }
         complete(with: .finished)
     }
 
