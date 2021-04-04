@@ -106,7 +106,7 @@ class InputStreamPublisherTests: XCTestCase {
         XCTAssertEqual(expectedOutput, receivedOutput)
     }
 
-    func testInputStreamFinishesWhenCancelled() throws {
+    func testInputStreamDoesNotReceiveFinishWhenCancelled() throws {
         class Box { var subscription: AnyObject? }
         let box = Box()
 
@@ -115,7 +115,8 @@ class InputStreamPublisherTests: XCTestCase {
         let expectedOutput: [UInt8] = [72, 101]
 
         let outputEx = expectation(description: "Should have received one chunk")
-        let completionEx = expectation(description: "Should have finished")
+        let completionEx = expectation(description: "Should not have finished")
+        completionEx.isInverted = true
 
         let subscriber = AnySubscriber<[UInt8], Error>(
             receiveSubscription: { sub in
@@ -128,15 +129,13 @@ class InputStreamPublisherTests: XCTestCase {
                 (box.subscription as? Cancellable)?.cancel()
                 return .max(1)
             },
-            receiveCompletion: { completion in
-                guard case .finished = completion else { return XCTFail() }
-                completionEx.fulfill()
-            }
+            receiveCompletion: { _ in completionEx.fulfill() }
         )
 
         let pub = InputStreamPublisher(data: data, maxChunkLength: 2)
         pub.subscribe(subscriber)
 
-        wait(for: [outputEx, completionEx], timeout: 2)
+        wait(for: [outputEx], timeout: 2)
+        wait(for: [completionEx], timeout: 0.1)
     }
 }
