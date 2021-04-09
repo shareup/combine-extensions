@@ -11,6 +11,10 @@ let package = Package(
             name: "CombineExtensions",
             targets: ["CombineExtensions"]),
         .library(
+            name: "CombineExtensionsDynamic",
+            type: .dynamic,
+            targets: ["CombineExtensions"]),
+        .library(
             name: "CombineTestExtensions",
             type: .dynamic,
             targets: ["CombineTestExtensions"]),
@@ -19,13 +23,15 @@ let package = Package(
         .package(
             name: "Synchronized",
             url: "https://github.com/shareup/synchronized.git",
-            from: "2.2.0"
+            from: "2.3.0"
         )
     ],
     targets: [
         .target(
             name: "CombineExtensions",
-            dependencies: ["Synchronized"]),
+            dependencies: [
+                .product(name: "SynchronizedDynamic", package: "Synchronized"),
+            ]),
         .target(
             name: "CombineTestExtensions",
             dependencies: []),
