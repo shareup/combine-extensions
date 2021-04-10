@@ -266,11 +266,13 @@ private extension Publisher {
                     ex.fulfill()
 
                 case let (.failure(expectedError), .failure(receivedError)):
-                    XCTAssertTrue(
-                        failureComparator(expectedError, receivedError),
-                        file: file,
-                        line: line
-                    )
+                    if !failureComparator(expectedError, receivedError) {
+                        XCTFail(
+                            "'\(receivedError)' is not equal to expected error '\(expectedError)'",
+                            file: file,
+                            line: line
+                        )
+                    }
                     ex.fulfill()
 
                 case (.anyFailure, .failure):
@@ -320,10 +322,13 @@ private extension Publisher {
                     }
                     
                     let expected = expectedValues.removeFirst()
-                    XCTAssertTrue(
-                        outputComparator(expected, output),
-                        file: file,
-                        line: line)
+                    if !outputComparator(expected, output) {
+                        XCTFail(
+                            "'\(output)' is not equal to expected output '\(expected)'",
+                            file: file,
+                            line: line
+                        )
+                    }
 
                     expectedOutput = .values(expectedValues)
                     if expectedValues.isEmpty {
