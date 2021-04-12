@@ -10,7 +10,7 @@ class PublisherTestExtensionsTests: XCTestCase {
             return ints.isEmpty ? .finished : .moreExpected
 
         }
-        let ex = ints.publisher.expectOutput(evaluator)
+        let ex = ints.publisher.expectOutput(evaluator, expectToFinish: true)
 
         wait(for: [ex], timeout: 0.5)
     }
