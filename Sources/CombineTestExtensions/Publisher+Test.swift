@@ -2,6 +2,11 @@ import Foundation
 import Combine
 import XCTest
 
+public enum OutputExpectation: Equatable {
+    case moreExpected
+    case finished
+}
+
 public extension Publisher where Output: Equatable {
     func expectOutput(
         _ expectedOutput: Output,
@@ -94,6 +99,42 @@ public extension Publisher where Output: Equatable, Failure: Equatable {
 
 public extension Publisher {
     func expectOutput(
+        _ outputEvaluator: @escaping (Output) throws -> OutputExpectation,
+        failsOnCompletion: Bool = false,
+        description: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCTestExpectation {
+        _expectOutput(
+            .custom(outputEvaluator),
+            outputComparator: { _, _ in fatalError()},
+            completion: failsOnCompletion ? .none : .any,
+            failureComparator: { _, _ in fatalError() },
+            description: description,
+            file: file,
+            line: line
+        )
+    }
+
+    func expectOutputAndFailure(
+        _ outputEvaluator: @escaping (Output) throws -> OutputExpectation,
+        failureEvaluator: @escaping (Failure) throws -> Void,
+        description: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCTestExpectation {
+        _expectOutput(
+            .custom(outputEvaluator),
+            outputComparator: { _, _ in fatalError()},
+            completion: .custom(failureEvaluator),
+            failureComparator: { _, _ in fatalError() },
+            description: description,
+            file: file,
+            line: line
+        )
+    }
+
+    func expectOutput(
         count: Int,
         failsOnCompletion: Bool = false,
         description: String? = nil,
@@ -168,6 +209,24 @@ public extension Publisher {
             failsOnOutput ? .none : .any,
             outputComparator: { _, _ in fatalError() },
             completion: .finished,
+            failureComparator: { _, _ in fatalError() },
+            description: description,
+            file: file,
+            line: line
+        )
+    }
+
+    func expectFailure(
+        _ failureEvaluator: @escaping (Failure) throws -> Void,
+        failsOnOutput: Bool = false,
+        description: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCTestExpectation {
+        _expectOutput(
+            failsOnOutput ? .none : .any,
+            outputComparator: { _, _ in fatalError()},
+            completion: .custom(failureEvaluator),
             failureComparator: { _, _ in fatalError() },
             description: description,
             file: file,
@@ -301,19 +360,41 @@ private extension Publisher {
                         line: line
                     )
                     ex.fulfill()
+
+                case let (.custom(evaluator), .failure(receivedError)):
+                    do {
+                        try evaluator(receivedError)
+                    } catch {
+                        XCTFail(
+                            "Error thrown when evaluating failure error '\(receivedError)': \(error)",
+                            file: file,
+                            line: line
+                        )
+                    }
+                    ex.fulfill()
+
+                case (.custom, .finished):
+                    XCTFail(
+                        "Should have received failure",
+                        file: file,
+                        line: line
+                    )
+                    ex.fulfill()
                 }
             },
-            receiveValue: { (output) in
+            receiveValue: { (receivedOutput) in
                 switch expectedOutput {
                 case .any:
                     break
+
                 case .none:
                     XCTFail("Should not have received any output", file: file, line: line)
+
                 case var .values(expectedValues):
                     guard !expectedValues.isEmpty else {
                         if ex.assertForOverFulfill {
                             XCTFail(
-                                "Received unexpected output: '\(String(describing: output))'",
+                                "Received unexpected output: '\(String(describing: receivedOutput))'",
                                 file: file,
                                 line: line
                             )
@@ -322,9 +403,9 @@ private extension Publisher {
                     }
                     
                     let expected = expectedValues.removeFirst()
-                    if !outputComparator(expected, output) {
+                    if !outputComparator(expected, receivedOutput) {
                         XCTFail(
-                            "'\(output)' is not equal to expected output '\(expected)'",
+                            "'\(receivedOutput)' is not equal to expected output '\(expected)'",
                             file: file,
                             line: line
                         )
@@ -333,6 +414,23 @@ private extension Publisher {
                     expectedOutput = .values(expectedValues)
                     if expectedValues.isEmpty {
                         ex.fulfill()
+                    }
+
+                case let .custom(evaluator):
+                    do {
+                        let outputExpectation = try evaluator(receivedOutput)
+                        switch outputExpectation {
+                        case .moreExpected:
+                            break
+                        case .finished:
+                            ex.fulfill()
+                        }
+                    } catch {
+                        XCTFail(
+                            "Error thrown when evaluating output '\(receivedOutput)': \(error)",
+                            file: file,
+                            line: line
+                        )
                     }
                 }
             }
@@ -346,6 +444,7 @@ private enum _Output<T>: CustomStringConvertible {
     case any
     case none
     case values([T])
+    case custom((T) throws -> OutputExpectation)
 
     var description: String {
         switch self {
@@ -355,6 +454,8 @@ private enum _Output<T>: CustomStringConvertible {
             return "<nothing>"
         case let .values(values):
             return String(describing: values)
+        case .custom:
+            return "<custom>"
         }
     }
 
@@ -364,11 +465,11 @@ private enum _Output<T>: CustomStringConvertible {
             return false
         case .values:
             return true
+        case .custom:
+            return true
         }
     }
 }
-
-extension _Output: Equatable where T: Equatable {}
 
 private enum _Completion<Failure: Error> {
     case any
@@ -376,6 +477,7 @@ private enum _Completion<Failure: Error> {
     case finished
     case failure(Failure)
     case anyFailure
+    case custom((Failure) throws -> Void)
 
     init(_ completion: Subscribers.Completion<Failure>) {
         switch completion {
@@ -390,13 +492,11 @@ private enum _Completion<Failure: Error> {
         switch self {
         case .any, .none:
             return false
-        case .finished, .failure, .anyFailure:
+        case .finished, .failure, .anyFailure, .custom:
             return true
         }
     }
 }
-
-extension _Completion: Equatable where Failure: Equatable {}
 
 private class _Expectation: XCTestExpectation {
     var token: AnyCancellable?
