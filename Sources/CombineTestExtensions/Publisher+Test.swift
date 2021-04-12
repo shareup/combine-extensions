@@ -116,6 +116,24 @@ public extension Publisher {
         )
     }
 
+    func expectOutput(
+        _ outputEvaluator: @escaping (Output) throws -> OutputExpectation,
+        expectToFinish: Bool,
+        description: String? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCTestExpectation {
+        _expectOutput(
+            .custom(outputEvaluator),
+            outputComparator: { _, _ in fatalError()},
+            completion: expectToFinish ? .finished : .any,
+            failureComparator: { _, _ in fatalError() },
+            description: description,
+            file: file,
+            line: line
+        )
+    }
+
     func expectOutputAndFailure(
         _ outputEvaluator: @escaping (Output) throws -> OutputExpectation,
         failureEvaluator: @escaping (Failure) throws -> Void,
