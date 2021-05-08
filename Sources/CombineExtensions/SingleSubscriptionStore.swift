@@ -1,3 +1,4 @@
+import Foundation
 import Combine
 import Synchronized
 
@@ -8,24 +9,22 @@ public extension Cancellable {
 }
 
 public class SingleSubscriptionStore: Hashable {
-    private var subscription: AnyCancellable?
-    private let lock = Lock()
+    private let key = UUID().uuidString
+    private let keyedSubscriptionStore = KeyedSubscriptionStore()
 
     public init(_ subscription: AnyCancellable? = nil) {
-        self.subscription = subscription
+        if let sub = subscription {
+            keyedSubscriptionStore.store(subscription: sub, forKey: key)
+        }
     }
 
     public func store(subscription: AnyCancellable) {
-        lock.locked { self.subscription = subscription }
+        keyedSubscriptionStore.store(subscription: subscription, forKey: key)
     }
 
     @discardableResult
     public func removeSubscription() -> AnyCancellable? {
-        lock.locked {
-            let sub = subscription
-            subscription = nil
-            return sub
-        }
+        keyedSubscriptionStore.removeSubscription(forKey: key)
     }
 
     public func hash(into hasher: inout Hasher) {

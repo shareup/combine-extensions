@@ -138,4 +138,65 @@ class InputStreamPublisherTests: XCTestCase {
         wait(for: [outputEx], timeout: 2)
         wait(for: [completionEx], timeout: 0.1)
     }
+
+    func testInputStreamWaitsForMeasuredSinkDemand() throws {
+        let data = Data("Hello!".utf8)
+
+        var receivedOutput: [[UInt8]] = []
+
+        let ex1 = expectation(description: "Should have received first two chunks")
+        let ex2 = expectation(description: "Should have received second two chunks")
+        let ex3 = expectation(description: "Should have received third two chunks")
+        let finishedEx = expectation(description: "Should have completed")
+
+        let sub = InputStreamPublisher(data: data, maxChunkLength: 2)
+            .measuredSink(
+                initialDemand: .max(1),
+                receiveValue: { value in
+                    switch receivedOutput.count {
+                    case 0:
+                        receivedOutput.append(value)
+                        ex1.fulfill()
+
+                    case 1:
+                        receivedOutput.append(value)
+                        ex2.fulfill()
+
+                    case 2:
+                        receivedOutput.append(value)
+                        ex3.fulfill()
+
+                    default:
+                        XCTFail("Should only have received three chunks")
+                    }
+
+                    return .none
+                },
+                receiveCompletion: { completion in
+                    switch completion {
+                    case .finished: finishedEx.fulfill()
+                    case let .failure(error): XCTFail("Should not have failed: \(error)")
+                    }
+                }
+            )
+        defer { sub.cancel() }
+
+        wait(for: [ex1], timeout: 2)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        XCTAssertEqual([[72, 101]], receivedOutput)
+
+        sub.request(demand: .max(1))
+        wait(for: [ex2], timeout: 2)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        XCTAssertEqual([[72, 101], [108, 108]], receivedOutput)
+
+        sub.request(demand: .max(1))
+        wait(for: [ex3], timeout: 2)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        XCTAssertEqual([[72, 101], [108, 108], [111, 33]], receivedOutput)
+
+        sub.request(demand: .max(1))
+        wait(for: [finishedEx], timeout: 2)
+        XCTAssertEqual([[72, 101], [108, 108], [111, 33]], receivedOutput)
+    }
 }
