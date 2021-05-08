@@ -1,0 +1,34 @@
+import Combine
+import Synchronized
+
+public extension Cancellable {
+    func store(in store: KeyedSubscriptionStore, key: String) {
+        store.store(subscription: AnyCancellable(self), forKey: key)
+    }
+}
+
+public class KeyedSubscriptionStore: Hashable {
+    private var subscriptions: [String: AnyCancellable]
+    private let lock = Lock()
+
+    public init(subscriptions: [String: AnyCancellable] = [:]) {
+        self.subscriptions = subscriptions
+    }
+
+    public func store(subscription: AnyCancellable, forKey key: String) {
+        lock.locked { self.subscriptions[key] = subscription }
+    }
+
+    @discardableResult
+    public func removeSubscription(forKey key: String) -> AnyCancellable? {
+        lock.locked { subscriptions.removeValue(forKey: key) }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: KeyedSubscriptionStore, rhs: KeyedSubscriptionStore) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+    }
+}
