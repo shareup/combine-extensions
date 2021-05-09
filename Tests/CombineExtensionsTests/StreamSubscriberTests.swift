@@ -38,9 +38,16 @@ class StreamSubscriberTests: XCTestCase {
         let sub = subject
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
-                receiveOutput: { (bytes) in
-                    XCTAssertEqual(1, bytes.count)
-                    XCTAssertEqual(input[outputIndex], bytes[0])
+                receiveRequest: { demand in
+                    XCTAssertEqual(.max(1), demand)
+                    demandEx.fulfill()
+                }
+            )
+            .stream(
+                toBuffer: buffer,
+                capacity: bufferCapacity,
+                receiveValue: { (bytesCount) in
+                    XCTAssertEqual(1, bytesCount)
                     outputIndex += 1
                     outputEx.fulfill()
                 },
@@ -51,13 +58,8 @@ class StreamSubscriberTests: XCTestCase {
                     case let .failure(error):
                         XCTFail("Should not have received error: \(error.localizedDescription)")
                     }
-                },
-                receiveRequest: { demand in
-                    XCTAssertEqual(.max(1), demand)
-                    demandEx.fulfill()
                 }
             )
-            .stream(toBuffer: buffer, capacity: bufferCapacity)
 
         defer { sub.cancel() }
 
@@ -95,13 +97,6 @@ class StreamSubscriberTests: XCTestCase {
         let sub = subject
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
-                receiveOutput: { (bytes) in
-                    XCTAssertEqual(1, bytes.count)
-                    XCTAssertEqual(input[outputIndex], bytes[0])
-                    outputIndex += 1
-                    outputEx.fulfill()
-                },
-                receiveCompletion: { _ in completionEx.fulfill() },
                 receiveCancel: { cancelEx?.fulfill() },
                 receiveRequest: { demand in
                     let expected = outputIndex <= self.bufferCapacity ?
@@ -111,7 +106,16 @@ class StreamSubscriberTests: XCTestCase {
                     demandEx.fulfill()
                 }
             )
-            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .stream(
+                toBuffer: buffer,
+                capacity: bufferCapacity,
+                receiveValue: { (bytesCount) in
+                    XCTAssertEqual(1, bytesCount)
+                    outputIndex += 1
+                    outputEx.fulfill()
+                },
+                receiveCompletion: { _ in completionEx.fulfill() }
+            )
 
         defer { sub.cancel() }
 
@@ -148,9 +152,16 @@ class StreamSubscriberTests: XCTestCase {
                     input.forEach { subject.send([$0]) }
                     subject.send(completion: .finished)
                 },
-                receiveOutput: { (bytes) in
-                    XCTAssertEqual(1, bytes.count)
-                    XCTAssertEqual(input[outputIndex], bytes[0])
+                receiveRequest: { demand in
+                    XCTAssertEqual(.max(1), demand)
+                    demandEx.fulfill()
+                }
+            )
+            .stream(
+                toBuffer: buffer,
+                capacity: bufferCapacity,
+                receiveValue: { bytesCount in
+                    XCTAssertEqual(1, bytesCount)
                     outputIndex += 1
                     outputEx.fulfill()
                 },
@@ -161,13 +172,8 @@ class StreamSubscriberTests: XCTestCase {
                     case let .failure(error):
                         XCTFail("Should not have received error: \(error.localizedDescription)")
                     }
-                },
-                receiveRequest: { demand in
-                    XCTAssertEqual(.max(1), demand)
-                    demandEx.fulfill()
                 }
             )
-            .stream(toBuffer: buffer, capacity: bufferCapacity)
 
         defer { sub.cancel() }
 
@@ -198,13 +204,23 @@ class StreamSubscriberTests: XCTestCase {
         let subscriptionEx = expectation(description: "Should have received subscription")
         let outputEx = expectation(description: "Should have received 6 bytes")
         outputEx.expectedFulfillmentCount = 6
+        let completionEx = expectation(description: "Should have received completion")
 
         let sub = subject
-            .handleEvents(
-                receiveSubscription: { _ in subscriptionEx.fulfill() },
-                receiveOutput: { _ in outputEx.fulfill() }
+            .handleEvents(receiveSubscription: { _ in subscriptionEx.fulfill() })
+            .stream(
+                toURL: url,
+                append: false,
+                receiveValue: { _ in outputEx.fulfill() },
+                receiveCompletion: { completion in
+                    switch completion {
+                    case .finished:
+                        completionEx.fulfill()
+                    case let .failure(error):
+                        XCTFail("Should not have received error: \(error.localizedDescription)")
+                    }
+                }
             )
-            .stream(toURL: url, append: false)
 
         defer { sub.cancel() }
 
@@ -213,7 +229,7 @@ class StreamSubscriberTests: XCTestCase {
         input.forEach { subject.send([$0]) }
         subject.send(completion: .finished)
 
-        wait(for: [outputEx], timeout: 2)
+        wait(for: [outputEx, completionEx], timeout: 2)
 
         XCTAssertEqual("Hello!", try String(contentsOf: url))
     }
@@ -238,12 +254,15 @@ class StreamSubscriberTests: XCTestCase {
         let sub = subject
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
-                receiveOutput: { _ in outputEx.fulfill() },
-                receiveCompletion: { _ in failureEx.fulfill() },
                 receiveCancel: { cancelEx?.fulfill() },
                 receiveRequest: { _ in demandEx.fulfill() }
             )
-            .stream(toURL: url, append: false)
+            .stream(
+                toURL: url,
+                append: false,
+                receiveValue: { _ in outputEx.fulfill() },
+                receiveCompletion: { _ in failureEx.fulfill() }
+            )
 
         defer { sub.cancel() }
 
@@ -268,14 +287,17 @@ class StreamSubscriberTests: XCTestCase {
         let _ = subject
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
-                receiveOutput: { _ in outputEx.fulfill() },
-                receiveCompletion: { _ in completionEx.fulfill() },
                 receiveRequest: { demand in
                     XCTAssertEqual(.max(1), demand)
                     demandEx.fulfill()
                 }
             )
-            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .stream(
+                toBuffer: buffer,
+                capacity: bufferCapacity,
+                receiveValue: { _ in outputEx.fulfill() },
+                receiveCompletion: { _ in completionEx.fulfill() }
+            )
 
         wait(for: [subscriptionEx, demandEx], timeout: 2)
 
@@ -287,9 +309,10 @@ class StreamSubscriberTests: XCTestCase {
         XCTAssertEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
     }
 
-    func testCancelledStreamSubscriberNeverReceivesOutputOrCompletion() throws {
+    func testCancelledStreamSubscriberDoesNotReceivesFurtherOutputOrCompletion() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
 
+        let outputEx = expectation(description: "Should have received one value")
         let completionEx = expectation(description: "Should not have received completion")
         completionEx.isInverted = true
         let cancelEx = expectation(description: "Should have received cancel")
@@ -298,14 +321,18 @@ class StreamSubscriberTests: XCTestCase {
 
         let sub = subject
             .handleEvents(
-                receiveCompletion: { _ in completionEx.fulfill() },
                 receiveCancel: { cancelEx.fulfill() },
                 receiveRequest: { demand in
                     XCTAssertEqual(.max(1), demand)
                     demandEx.fulfill()
                 }
             )
-            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .stream(
+                toBuffer: buffer,
+                capacity: bufferCapacity,
+                receiveValue: { _ in outputEx.fulfill() },
+                receiveCompletion: { _ in completionEx.fulfill() }
+            )
 
         wait(for: [demandEx], timeout: 2)
 
@@ -317,7 +344,7 @@ class StreamSubscriberTests: XCTestCase {
         subject.send(completion: .finished)
 
         wait(for: [cancelEx], timeout: 2)
-        wait(for: [completionEx], timeout: 0.1)
+        wait(for: [outputEx, completionEx], timeout: 0.1)
 
         XCTAssertEqual([42, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
     }

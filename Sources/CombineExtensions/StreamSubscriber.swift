@@ -5,15 +5,32 @@ import Synchronized
 public extension Publisher where Output == [UInt8], Failure == Error {
     func stream(
         toBuffer buffer: UnsafeMutablePointer<UInt8>,
-        capacity: Int
+        capacity: Int,
+        receiveValue: @escaping (Int) -> Void,
+        receiveCompletion: @escaping (Subscribers.Completion<Failure>) -> Void
     ) -> AnyCancellable {
-        let subscriber = Subscribers.Stream(toBuffer: buffer, capacity: capacity)
+        let subscriber = Subscribers.Stream(
+            toBuffer: buffer,
+            capacity: capacity,
+            receiveValue: receiveValue,
+            receiveCompletion: receiveCompletion
+        )
         subscribe(subscriber)
         return AnyCancellable(subscriber)
     }
 
-    func stream(toURL url: URL, append: Bool) -> AnyCancellable {
-        let subscriber = Subscribers.Stream(toURL: url, append: append)
+    func stream(
+        toURL url: URL,
+        append: Bool,
+        receiveValue: @escaping (Int) -> Void,
+        receiveCompletion: @escaping (Subscribers.Completion<Failure>) -> Void
+    ) -> AnyCancellable {
+        let subscriber = Subscribers.Stream(
+            toURL: url,
+            append: append,
+            receiveValue: receiveValue,
+            receiveCompletion: receiveCompletion
+        )
         subscribe(subscriber)
         return AnyCancellable(subscriber)
     }
@@ -23,16 +40,35 @@ public extension Subscribers {
     final class Stream: Subscriber, Cancellable, CustomStringConvertible {
         public typealias Input = [UInt8]
         public typealias Failure = Error
+
+        private let onWriteBytes: (Int) -> Void
+        private let onCompletion: (Subscribers.Completion<Failure>) -> Void
         
         private var state: StreamState
         private let lock = Lock()
         
-        public init(toBuffer buffer: UnsafeMutablePointer<UInt8>, capacity: Int) {
+        public init(
+            toBuffer buffer: UnsafeMutablePointer<UInt8>,
+            capacity: Int,
+            receiveValue: @escaping (Int) -> Void,
+            receiveCompletion: @escaping (Subscribers.Completion<Failure>) -> Void
+        ) {
+            self.onWriteBytes = receiveValue
+            self.onCompletion = receiveCompletion
+
             let stream = OutputStream(toBuffer: buffer, capacity: capacity)
             state = .awaitingSubscription(stream)
         }
         
-        public init(toURL url: URL, append: Bool) {
+        public init(
+            toURL url: URL,
+            append: Bool,
+            receiveValue: @escaping (Int) -> Void,
+            receiveCompletion: @escaping (Subscribers.Completion<Failure>) -> Void
+        ) {
+            self.onWriteBytes = receiveValue
+            self.onCompletion = receiveCompletion
+
             if let stream = OutputStream(url: url, append: append) {
                 state = .awaitingSubscription(stream)
             } else {
@@ -47,10 +83,23 @@ public extension Subscribers {
         public var description: String { "Stream" }
         
         public func cancel() {
-            if let subsription = lock.locked({ state.subscription }) {
-                subsription.cancel()
+            let (outputStream, subscription): (OutputStream?, Subscription?) = lock.locked {
+                switch state {
+                case let .awaitingSubscription(stream):
+                    state = .finished
+                    return (stream, nil)
+
+                case let .streaming(stream, subscription):
+                    state = .finished
+                    return (stream, subscription)
+
+                case .error, .finished:
+                    return (nil, nil)
+                }
             }
-            receive(completion: .finished)
+
+            outputStream?.close()
+            subscription?.cancel()
         }
         
         public func receive(subscription: Subscription) {
@@ -90,21 +139,37 @@ public extension Subscribers {
             switch result {
             case 0:
                 stream.close()
-                lock.locked { state = .finished }
+                let shouldCallOnCompletion: Bool = lock.locked {
+                    let oldState = state
+                    state = .finished
+                    return oldState.isStreaming
+                }
+                if shouldCallOnCompletion {
+                    onCompletion(.finished)
+                }
                 return .none
                 
             case -1:
                 stream.close()
-                lock.locked { state = .error(stream.streamError ?? StreamError.unknown) }
+                let error = stream.streamError ?? StreamError.unknown
+                let shouldCallOnCompletion: Bool = lock.locked {
+                    let oldState = state
+                    state = .error(error)
+                    return oldState.isStreaming
+                }
+                if shouldCallOnCompletion {
+                    onCompletion(.failure(error))
+                }
                 return .none
                 
             default:
+                onWriteBytes(result)
                 return stream.hasSpaceAvailable ? .max(1) : .none
             }
         }
         
         public func receive(completion: Subscribers.Completion<Error>) {
-            lock.locked {
+            let shouldCallOnCompletion: Bool = lock.locked {
                 switch state {
                 case let .awaitingSubscription(stream):
                     // We never opened it, but calling `close()` on an unopened
@@ -112,15 +177,20 @@ public extension Subscribers {
                     // it just to be safe.
                     stream.close()
                     state = StreamState(completion)
+                    return false
                     
                 case let .streaming(stream, _):
                     stream.close()
                     state = StreamState(completion)
-                    
+                    return true
+
                 case .finished, .error:
-                    break
+                    return false
                 }
             }
+
+            guard shouldCallOnCompletion else { return }
+            onCompletion(completion)
         }
 
         private var newDemand: Subscribers.Demand {
@@ -145,6 +215,15 @@ private enum StreamState {
             self = .finished
         case let .failure(error):
             self = .error(error)
+        }
+    }
+
+    var isStreaming: Bool {
+        switch self {
+        case .streaming:
+            return true
+        case .awaitingSubscription, .error, .finished:
+            return false
         }
     }
 
