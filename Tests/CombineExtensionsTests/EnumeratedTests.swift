@@ -23,6 +23,26 @@ final class EnumeratedTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
+    func testEnumeratedWithCustomStartIndexWithArrayPublisher() throws {
+        let pub = [10, 11, 12, 13, 14, 15]
+            .publisher
+            .map { String($0) }
+            .enumerated(startIndex: 100)
+
+        var expected = (100, 10)
+        let ex = pub.expectOutput(
+            { (index, value) in
+                XCTAssertEqual(expected.0, index)
+                XCTAssertEqual(String(expected.1), value)
+                expected = (expected.0 + 1, expected.1 + 1)
+                return expected.0 >= 106 ? .finished : .moreExpected
+            },
+            expectToFinish: true
+        )
+
+        wait(for: [ex], timeout: 2)
+    }
+
     func testEnumeratedWithInputStreamPublisher() throws {
         let data = Data("Hello".utf8)
         let pub = InputStreamPublisher(
