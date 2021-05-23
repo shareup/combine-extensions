@@ -43,13 +43,32 @@ final class EnumeratedTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
+    func testEnumeratedWithArrayPublisherWithArraysAsOutput() throws {
+        let matrix = [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ]
+
+        let pub = matrix
+            .publisher
+            .enumerated()
+
+        let ex = pub.expectOutput(
+            { (index, value) in
+                XCTAssertEqual(matrix[index], value)
+                return index == 2 ? .finished : .moreExpected
+            },
+            expectToFinish: true
+        )
+
+        wait(for: [ex], timeout: 2)
+    }
+
     func testEnumeratedWithInputStreamPublisher() throws {
         let data = Data("Hello".utf8)
-        let pub = InputStreamPublisher(
-            data: data,
-            maxChunkLength: 2
-        )
-        .enumerated()
+        let pub = Publishers.InputStream(data: data, maxChunkSize: 2)
+            .enumerated()
 
         var expected = [
             (0, Array("He".utf8)),

@@ -3,7 +3,7 @@ import CombineExtensions
 import CombineTestExtensions
 import XCTest
 
-class StreamSubscriberTests: XCTestCase {
+class OutputStreamPublisherTests: XCTestCase {
     private var buffer: UnsafeMutablePointer<UInt8>!
     private let bufferCapacity: Int = 10
 
@@ -23,7 +23,7 @@ class StreamSubscriberTests: XCTestCase {
         buffer.deallocate()
     }
 
-    func testStreamSubscriberWithData() throws {
+    func testWithData() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
         let input: [UInt8] = [72, 101, 108, 108, 111, 33] // Hello!
 
@@ -31,21 +31,22 @@ class StreamSubscriberTests: XCTestCase {
         let outputEx = expectation(description: "Should have received 6 bytes")
         outputEx.expectedFulfillmentCount = 6
         let completionEx = expectation(description: "Should have received completion")
-        let demandEx = expectation(description: "Should have received 7 demands")
-        demandEx.expectedFulfillmentCount = 7
+        let demandEx = expectation(description: "Should have received 1 unlimited demand")
 
         var outputIndex = 0
         let sub = subject
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
                 receiveRequest: { demand in
-                    XCTAssertEqual(.max(1), demand)
+                    XCTAssertEqual(.unlimited, demand)
                     demandEx.fulfill()
                 }
             )
             .stream(
                 toBuffer: buffer,
-                capacity: bufferCapacity,
+                capacity: bufferCapacity
+            )
+            .sink(
                 receiveValue: { (bytesCount) in
                     XCTAssertEqual(1, bytesCount)
                     outputIndex += 1
@@ -76,57 +77,58 @@ class StreamSubscriberTests: XCTestCase {
         )
     }
 
-    func testStreamSubscriberWithTooMuchData() throws {
+    func testWithMultipleByteChunks() throws {
+        let subject = PassthroughSubject<[UInt8], Error>()
+
+        let input: [[UInt8]] = [
+            [72, 105, 33], // Hi!
+            [72, 105, 33], // Hi!
+        ]
+
+        let ex = subject
+            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .expectOutput([3, 3], expectToFinish: true)
+
+        input.forEach { subject.send($0) }
+        subject.send(completion: .finished)
+
+        wait(for: [ex], timeout: 2)
+
+        XCTAssertEqual([72, 105, 33, 72, 105, 33, 0, 0, 0, 0] as [UInt8], bytes)
+    }
+
+    func testWithTooMuchData() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
         let input: [UInt8] = [
             72, 101, 108, 108, 111, 33, // Hello!
             72, 101, 108, 108, 111, 33, // Hello!
         ]
 
-        let subscriptionEx = expectation(description: "Should have received subscription")
-        let outputEx = expectation(description: "Should have received 10 bytes")
-        outputEx.expectedFulfillmentCount = bufferCapacity
-        let completionEx = expectation(description: "Should not have received completion")
-        completionEx.isInverted = true
-        var cancelEx: XCTestExpectation? = expectation(description: "Should have received cancel")
-        cancelEx?.isInverted = true
-        let demandEx = expectation(description: "Should have received 10 demands")
-        demandEx.expectedFulfillmentCount = bufferCapacity
+        let cancelEx = expectation(description: "Should have received cancel")
 
-        var outputIndex = 0
-        let sub = subject
-            .handleEvents(
-                receiveSubscription: { _ in subscriptionEx.fulfill() },
-                receiveCancel: { cancelEx?.fulfill() },
-                receiveRequest: { demand in
-                    let expected = outputIndex <= self.bufferCapacity ?
-                        Subscribers.Demand.max(1) :
-                        .none
-                    XCTAssertEqual(expected, demand)
-                    demandEx.fulfill()
-                }
-            )
+        var expectedOutputCount = 10
+        let ex = subject
+            .handleEvents(receiveCancel: { cancelEx.fulfill() })
             .stream(
                 toBuffer: buffer,
-                capacity: bufferCapacity,
-                receiveValue: { (bytesCount) in
-                    XCTAssertEqual(1, bytesCount)
-                    outputIndex += 1
-                    outputEx.fulfill()
+                capacity: bufferCapacity
+            )
+            .expectOutputAndFailure(
+                { value in
+                    expectedOutputCount -= value
+                    return expectedOutputCount == 0 ? .finished : .moreExpected
                 },
-                receiveCompletion: { _ in completionEx.fulfill() }
+                failureEvaluator: { error in
+                    let nserror = error as NSError
+                    XCTAssertEqual(NSPOSIXErrorDomain, nserror.domain)
+                    XCTAssertEqual(12, nserror.code)
+                }
             )
 
-        defer { sub.cancel() }
-
-        wait(for: [subscriptionEx], timeout: 2)
 
         input.forEach { subject.send([$0]) }
 
-        wait(for: [outputEx, demandEx], timeout: 2)
-
-        wait(for: [completionEx, cancelEx!], timeout: 0.1)
-        cancelEx = nil // `defer { sub.cancel() }` might trigger this inverted exception
+        wait(for: [cancelEx, ex], timeout: 2)
 
         XCTAssertEqual(
             [72, 101, 108, 108, 111, 33, 72, 101, 108, 108,] as [UInt8],
@@ -134,50 +136,25 @@ class StreamSubscriberTests: XCTestCase {
         )
     }
 
-    func testStreamSubscriberDataSentBeforeSubscribingToBufferedSubject() throws {
+    func testDataSentBeforeSubscribingToBufferedSubject() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
         let input: [UInt8] = [72, 101, 108, 108, 111, 33] // Hello!
 
-        let outputEx = expectation(description: "Should have received 6 bytes")
-        outputEx.expectedFulfillmentCount = 6
-        let completionEx = expectation(description: "Should have received completion")
-        let demandEx = expectation(description: "Should have received 7 demands")
-        demandEx.expectedFulfillmentCount = 7
-
-        var outputIndex = 0
-        let sub = subject
+        let ex = subject
             .buffer(size: bufferCapacity, prefetch: .byRequest, whenFull: .dropOldest)
             .handleEvents(
                 receiveSubscription: { _ in
                     input.forEach { subject.send([$0]) }
                     subject.send(completion: .finished)
-                },
-                receiveRequest: { demand in
-                    XCTAssertEqual(.max(1), demand)
-                    demandEx.fulfill()
                 }
             )
             .stream(
                 toBuffer: buffer,
-                capacity: bufferCapacity,
-                receiveValue: { bytesCount in
-                    XCTAssertEqual(1, bytesCount)
-                    outputIndex += 1
-                    outputEx.fulfill()
-                },
-                receiveCompletion: { completion in
-                    switch completion {
-                    case .finished:
-                        completionEx.fulfill()
-                    case let .failure(error):
-                        XCTFail("Should not have received error: \(error.localizedDescription)")
-                    }
-                }
+                capacity: bufferCapacity
             )
+            .expectOutput((0..<6).map { _ in 1 }, expectToFinish: true)
 
-        defer { sub.cancel() }
-
-        wait(for: [outputEx, completionEx, demandEx], timeout: 2)
+        wait(for: [ex], timeout: 2)
 
         XCTAssertEqual(
             [72, 101, 108, 108, 111, 33, 0, 0, 0, 0] as [UInt8],
@@ -185,7 +162,7 @@ class StreamSubscriberTests: XCTestCase {
         )
     }
 
-    func testStreamSubscriberSucceedsWithValidURL() throws {
+    func testSucceedsWithValidURL() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
         let input: [UInt8] = [72, 101, 108, 108, 111, 33] // Hello!
 
@@ -194,87 +171,55 @@ class StreamSubscriberTests: XCTestCase {
             .appendingPathComponent("testStreamSubscriberSucceedsWithValidURL-\(arc4random())")
 
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
 
         let url = tempDir.appendingPathComponent("text.txt")
 
-        defer {
-            try? FileManager.default.removeItem(at: tempDir)
-        }
-
-        let subscriptionEx = expectation(description: "Should have received subscription")
-        let outputEx = expectation(description: "Should have received 6 bytes")
-        outputEx.expectedFulfillmentCount = 6
-        let completionEx = expectation(description: "Should have received completion")
-
-        let sub = subject
-            .handleEvents(receiveSubscription: { _ in subscriptionEx.fulfill() })
+        let ex = subject
             .stream(
                 toURL: url,
-                append: false,
-                receiveValue: { _ in outputEx.fulfill() },
-                receiveCompletion: { completion in
-                    switch completion {
-                    case .finished:
-                        completionEx.fulfill()
-                    case let .failure(error):
-                        XCTFail("Should not have received error: \(error.localizedDescription)")
-                    }
-                }
+                append: false
             )
-
-        defer { sub.cancel() }
-
-        wait(for: [subscriptionEx], timeout: 2)
+            .expectToFinish()
 
         input.forEach { subject.send([$0]) }
         subject.send(completion: .finished)
 
-        wait(for: [outputEx, completionEx], timeout: 2)
+        wait(for: [ex], timeout: 2)
 
         XCTAssertEqual("Hello!", try String(contentsOf: url))
     }
 
-    func testStreamSubscriberFailsForInvalidURL() throws {
+    func testFailsForInvalidURL() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
 
         let url = FileManager.default
             .temporaryDirectory
-            .appendingPathComponent("this-folder-does-not-exist")
-            .appendingPathComponent("this-file-does-not-exist-\(arc4random()).dat")
-
-        let subscriptionEx = expectation(description: "Should have received subscription")
-        let outputEx = expectation(description: "Should have received 10 bytes")
-        outputEx.isInverted = true
-        let failureEx = expectation(description: "Should not have received failure")
-        failureEx.isInverted = true
-        var cancelEx: XCTestExpectation? = expectation(description: "Should not have received cancel")
-        let demandEx = expectation(description: "Should not have received demand")
-        demandEx.isInverted = true
-
-        let sub = subject
-            .handleEvents(
-                receiveSubscription: { _ in subscriptionEx.fulfill() },
-                receiveCancel: { cancelEx?.fulfill() },
-                receiveRequest: { _ in demandEx.fulfill() }
+            .appendingPathComponent("this-folder-does-not-exist", isDirectory: true)
+            .appendingPathComponent(
+                "this-file-does-not-exist-\(arc4random()).dat",
+                isDirectory: false
             )
+
+        let cancelEx = expectation(description: "Should have received cancel")
+        let ex = subject
+            .handleEvents(receiveCancel: { cancelEx.fulfill() })
             .stream(
                 toURL: url,
-                append: false,
-                receiveValue: { _ in outputEx.fulfill() },
-                receiveCompletion: { _ in failureEx.fulfill() }
+                append: false
             )
-
-        defer { sub.cancel() }
-
-        wait(for: [subscriptionEx, cancelEx!], timeout: 2)
+            .expectFailure { error in
+                let nserror = error as NSError
+                XCTAssertEqual(NSPOSIXErrorDomain, nserror.domain)
+                XCTAssertEqual(2, nserror.code)
+            }
 
         subject.send([72])
 
-        wait(for: [outputEx, failureEx, demandEx], timeout: 0.1)
-        cancelEx = nil
+        wait(for: [ex, cancelEx], timeout: 0.1)
     }
 
-    func testUnretainedStreamSubscriberNeverReceivesOutputOrCompletion() throws {
+    func testUnretainedPublisherNeverPublishesOutputOrCompletion() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
 
         let subscriptionEx = expectation(description: "Should have received subscription")
@@ -288,13 +233,15 @@ class StreamSubscriberTests: XCTestCase {
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
                 receiveRequest: { demand in
-                    XCTAssertEqual(.max(1), demand)
+                    XCTAssertEqual(.unlimited, demand)
                     demandEx.fulfill()
                 }
             )
             .stream(
                 toBuffer: buffer,
-                capacity: bufferCapacity,
+                capacity: bufferCapacity
+            )
+            .sink(
                 receiveValue: { _ in outputEx.fulfill() },
                 receiveCompletion: { _ in completionEx.fulfill() }
             )
@@ -309,7 +256,7 @@ class StreamSubscriberTests: XCTestCase {
         XCTAssertEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
     }
 
-    func testCancelledStreamSubscriberDoesNotReceivesFurtherOutputOrCompletion() throws {
+    func testCancelledPublisherDoesNotPublishFurtherOutputOrCompletion() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
 
         let outputEx = expectation(description: "Should have received one value")
@@ -317,19 +264,20 @@ class StreamSubscriberTests: XCTestCase {
         completionEx.isInverted = true
         let cancelEx = expectation(description: "Should have received cancel")
         let demandEx = expectation(description: "Should have received demand")
-        demandEx.assertForOverFulfill = false
 
         let sub = subject
             .handleEvents(
                 receiveCancel: { cancelEx.fulfill() },
                 receiveRequest: { demand in
-                    XCTAssertEqual(.max(1), demand)
+                    XCTAssertEqual(.unlimited, demand)
                     demandEx.fulfill()
                 }
             )
             .stream(
                 toBuffer: buffer,
-                capacity: bufferCapacity,
+                capacity: bufferCapacity
+            )
+            .sink(
                 receiveValue: { _ in outputEx.fulfill() },
                 receiveCompletion: { _ in completionEx.fulfill() }
             )
