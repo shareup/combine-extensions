@@ -2,32 +2,46 @@ import Foundation
 import Combine
 import Synchronized
 
-public struct InputStreamPublisher: Publisher {
-    public typealias Output = [UInt8]
-    public typealias Failure = Error
-
-    private let streamType: StreamType
-    private let maxChunkLength: Int
-
-    public init(url: URL, maxChunkLength: Int) {
-        streamType = .url(url)
-        self.maxChunkLength = maxChunkLength
+public extension Data {
+    func publisher(maxChunkSize: Int) -> Publishers.InputStream {
+        Publishers.InputStream(data: self, maxChunkSize: maxChunkSize)
     }
+}
 
-    public init(data: Data, maxChunkLength: Int) {
-        streamType = .data(data)
-        self.maxChunkLength = maxChunkLength
+public extension URL {
+    func publisher(maxChunkSize: Int) -> Publishers.InputStream {
+        Publishers.InputStream(url: self, maxChunkSize: maxChunkSize)
     }
+}
 
-    public func receive<S: Subscriber>(
-        subscriber: S
-    ) where Failure == S.Failure, Output == S.Input {
-        let subscription = InputStreamSubscription(
-            streamType: streamType,
-            maxChunkLength: maxChunkLength,
-            subscriber: subscriber
-        )
-        subscriber.receive(subscription: subscription)
+extension Publishers {
+    public struct InputStream: Publisher {
+        public typealias Output = [UInt8]
+        public typealias Failure = Error
+
+        private let streamType: StreamType
+        private let maxChunkSize: Int
+
+        public init(url: URL, maxChunkSize: Int) {
+            streamType = .url(url)
+            self.maxChunkSize = maxChunkSize
+        }
+
+        public init(data: Data, maxChunkSize: Int) {
+            streamType = .data(data)
+            self.maxChunkSize = maxChunkSize
+        }
+
+        public func receive<S: Subscriber>(
+            subscriber: S
+        ) where Failure == S.Failure, Output == S.Input {
+            let subscription = InputStreamSubscription(
+                streamType: streamType,
+                maxChunkLength: maxChunkSize,
+                subscriber: subscriber
+            )
+            subscriber.receive(subscription: subscription)
+        }
     }
 }
 
