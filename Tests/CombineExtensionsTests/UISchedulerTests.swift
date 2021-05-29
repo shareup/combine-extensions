@@ -3,7 +3,7 @@ import CombineExtensions
 import XCTest
 
 // Taken from https://github.com/pointfreeco/combine-schedulers/blob/main/Tests/CombineSchedulersTests/UISchedulerTests.swift
-class UISchedulerTests: XCTestCase {
+final class UISchedulerTests: XCTestCase {
     func testPublishersOnTheMainThreadPublishImmediately() throws {
         var didWork = false
         UIScheduler.shared.schedule { didWork = true }
