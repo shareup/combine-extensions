@@ -234,14 +234,14 @@ where
                 return
             }
 
-            let count: Int? = lock.locked {
+            let _count: Int? = lock.locked {
                 guard case let .ready(subscriber, _) = state
                 else { return nil }
                 state = .retrying(subscriber)
                 retries += 1
                 return retries
             }
-            guard let count = count else { return complete(with: completion) }
+            guard let count = _count else { return complete(with: completion) }
 
             scheduler.schedule(
                 after: scheduler.now.advanced(by: interval(count)),
