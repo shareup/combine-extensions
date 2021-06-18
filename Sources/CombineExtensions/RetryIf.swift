@@ -3,6 +3,21 @@ import Combine
 import Synchronized
 
 extension Publisher {
+    public func retry<Context: Scheduler>(
+        after interval: @escaping (Int) -> Context.SchedulerTimeType.Stride,
+        tolerance: Context.SchedulerTimeType.Stride? = nil,
+        scheduler: Context,
+        options: Context.SchedulerOptions? = nil
+    ) -> Publishers.RetryIf<Self, Context> {
+        retryIf(
+            { _ in true },
+            after: interval,
+            tolerance: tolerance,
+            scheduler: scheduler,
+            options: options
+        )
+    }
+
     public func retryIf<Context: Scheduler>(
         _ predicate: @escaping (Failure) -> Bool,
         after interval: Context.SchedulerTimeType.Stride,

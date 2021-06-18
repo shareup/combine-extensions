@@ -105,7 +105,12 @@ private final class InputStreamSubscription<S: Subscriber>: Subscription
 
     func request(_ demand: Subscribers.Demand) {
         guard demand != .none else { return }
-        lock.locked { self.demand += demand }
+        let shouldPublish: Bool = lock.locked {
+            let shouldPublish = self.demand == .none
+            self.demand += demand
+            return shouldPublish
+        }
+        guard shouldPublish else { return }
         publish()
     }
 
