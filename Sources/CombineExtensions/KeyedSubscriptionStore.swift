@@ -7,7 +7,7 @@ public extension Cancellable {
     }
 }
 
-public class KeyedSubscriptionStore: Hashable {
+public final class KeyedSubscriptionStore: Hashable {
     private var subscriptions: [String: AnyCancellable]
     private let lock = Lock()
 
@@ -17,6 +17,10 @@ public class KeyedSubscriptionStore: Hashable {
 
     public func store(subscription: AnyCancellable, forKey key: String) {
         lock.locked { self.subscriptions[key] = subscription }
+    }
+
+    public func removeAll(keepingCapacity keepCapacity: Bool = false) {
+        lock.locked { subscriptions.removeAll(keepingCapacity: keepCapacity) }
     }
 
     @discardableResult
