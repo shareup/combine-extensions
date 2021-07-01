@@ -8,7 +8,7 @@ public extension Cancellable {
     }
 }
 
-public class SingleSubscriptionStore: Hashable {
+public final class SingleSubscriptionStore: Hashable {
     private let key = UUID().uuidString
     private let keyedSubscriptionStore = KeyedSubscriptionStore()
 
