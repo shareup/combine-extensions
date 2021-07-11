@@ -31,7 +31,7 @@ extension Publishers {
                 .map { (value: Upstream.Output) -> (Int, Upstream.Output) in
                     let i: Int = lock.locked {
                         let i = index
-                        index += 1
+                        index = index &+ 1
                         return i
                     }
                     return (i, value)
