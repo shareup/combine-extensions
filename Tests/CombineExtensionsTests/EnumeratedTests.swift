@@ -23,6 +23,24 @@ final class EnumeratedTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
+    func testEnumeratedWraps() throws {
+        let pub = [1, 2, 3]
+            .publisher
+            .enumerated(startIndex: Int.max)
+
+        var expected = [(Int.max, 1), (Int.min, 2), (Int.min + 1, 3)]
+        let ex = pub
+            .expectOutput { (index, number) in
+                let expectedOutput = expected.removeFirst()
+                XCTAssertEqual(expectedOutput.0, index)
+                XCTAssertEqual(expectedOutput.1, number)
+
+                return expected.isEmpty ? .finished : .moreExpected
+            }
+
+        wait(for: [ex], timeout: 2)
+    }
+
     func testEnumeratedWithCustomStartIndexWithArrayPublisher() throws {
         let pub = [10, 11, 12, 13, 14, 15]
             .publisher
