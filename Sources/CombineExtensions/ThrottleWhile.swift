@@ -182,8 +182,8 @@ where
     private func publishIfPossible() {
         let subAndOutput: (S, Input)? =  lock.locked {
             guard demand > .none, !isThrottled else { return nil }
-            guard case let .ready(subscriber, subscription, output) = state,
-                  let output = output
+            guard case let .ready(subscriber, subscription, _output) = state,
+                  let output = _output
             else { return nil }
 
             state = .ready(subscriber, subscription, nil)
