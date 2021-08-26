@@ -18,6 +18,8 @@ public final class SingleSubscriptionStore: Hashable {
         }
     }
 
+    public var isEmpty: Bool { keyedSubscriptionStore.isEmpty }
+
     public func store(subscription: AnyCancellable) {
         keyedSubscriptionStore.store(subscription: subscription, forKey: key)
     }

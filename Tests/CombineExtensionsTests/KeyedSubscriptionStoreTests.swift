@@ -4,6 +4,32 @@ import CombineExtensions
 import CombineTestExtensions
 
 class KeyedSubscriptionStoreTests: XCTestCase {
+    func testKeyedSubscriptionStoreIsEmptyAndContains() throws {
+        let store = KeyedSubscriptionStore()
+
+        XCTAssertTrue(store.isEmpty)
+
+        [1, 2, 3].publisher.sink { _ in }.store(in: store, key: "first")
+        [1, 2, 3].publisher.sink { _ in }.store(in: store, key: "second")
+
+        XCTAssertFalse(store.isEmpty)
+        XCTAssertTrue(store.containsSubscription(forKey: "first"))
+        XCTAssertTrue(store.containsSubscription(forKey: "second"))
+        XCTAssertFalse(store.containsSubscription(forKey: "third"))
+
+        store.removeSubscription(forKey: "second")
+        XCTAssertFalse(store.isEmpty)
+        XCTAssertTrue(store.containsSubscription(forKey: "first"))
+        XCTAssertFalse(store.containsSubscription(forKey: "second"))
+        XCTAssertFalse(store.containsSubscription(forKey: "third"))
+
+        store.removeSubscription(forKey: "first")
+        XCTAssertTrue(store.isEmpty)
+        XCTAssertFalse(store.containsSubscription(forKey: "first"))
+        XCTAssertFalse(store.containsSubscription(forKey: "second"))
+        XCTAssertFalse(store.containsSubscription(forKey: "third"))
+    }
+
     func testKeyedSubscriptionStoreEquatableAndHashable() throws {
         let one = KeyedSubscriptionStore()
         let two = KeyedSubscriptionStore()
