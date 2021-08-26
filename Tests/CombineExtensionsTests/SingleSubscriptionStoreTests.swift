@@ -4,6 +4,19 @@ import CombineExtensions
 import CombineTestExtensions
 
 class SingleSubscriptionStoreTests: XCTestCase {
+    func testSingleSubscriptionStoreIsEmptyAndContains() throws {
+        let store = SingleSubscriptionStore()
+
+        XCTAssertTrue(store.isEmpty)
+
+        [1, 2, 3].publisher.sink { _ in }.store(in: store)
+
+        XCTAssertFalse(store.isEmpty)
+
+        store.removeSubscription()
+        XCTAssertTrue(store.isEmpty)
+    }
+
     func testSingleSubscriptionStoreEquatableAndHashable() throws {
         let one = SingleSubscriptionStore()
         let two = SingleSubscriptionStore()

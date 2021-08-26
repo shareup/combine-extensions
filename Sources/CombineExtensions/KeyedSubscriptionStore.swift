@@ -15,8 +15,14 @@ public final class KeyedSubscriptionStore: Hashable {
         self.subscriptions = subscriptions
     }
 
+    public var isEmpty: Bool { lock.locked { subscriptions.isEmpty } }
+
+    public func containsSubscription(forKey key: String) -> Bool {
+        lock.locked { subscriptions[key] != nil }
+    }
+
     public func store(subscription: AnyCancellable, forKey key: String) {
-        lock.locked { self.subscriptions[key] = subscription }
+        lock.locked { subscriptions[key] = subscription }
     }
 
     public func removeAll(keepingCapacity keepCapacity: Bool = false) {
