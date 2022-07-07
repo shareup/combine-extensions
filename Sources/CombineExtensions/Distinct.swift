@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import Synchronized
 
 extension Publisher {
     public func distinct<T: Hashable>() -> Publishers.Distinct<Self, T> where Output == Array<T> {

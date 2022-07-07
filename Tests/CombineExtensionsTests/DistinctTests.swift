@@ -89,7 +89,7 @@ final class DistinctTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
     
-    func testDistinctConsecutivenessWithPassThroughSubject() throws {
+    func testDistinctConsecutivenessWithPassthroughSubject() throws {
         let queue = DispatchQueue(label: "global.concurrent.queue", qos: .background, attributes: .concurrent)
         
         let subject = PassthroughSubject<[Int], Error>()
@@ -110,16 +110,16 @@ final class DistinctTests: XCTestCase {
             .sink { receivedValues in
                 let uniqueReceivedValues = Set(receivedValues)
                 if receivedValues.count == uniqueReceivedValues.count { ex1.fulfill() }
-                else { XCTFail("Received \(receivedValues.count) events, of which only \(uniqueReceivedValues.count) are unique.") }
+                else { XCTFail("Received \(receivedValues.count) events, of which only \(uniqueReceivedValues.count) are unique") }
         
                 let receivedIntegers = receivedValues.flatMap { $0 }
                 let uniqueReceivedIntegers = Set(receivedIntegers)
         
                 if receivedIntegers.count == uniqueReceivedIntegers.count { ex2.fulfill() }
-                else { XCTFail("Received \(receivedIntegers.count) values, of which only \(uniqueReceivedIntegers.count) are unique.") }
+                else { XCTFail("Received \(receivedIntegers.count) values, of which only \(uniqueReceivedIntegers.count) are unique") }
         
                 if uniqueReceivedIntegers == expected { ex3.fulfill() }
-                else { XCTFail("Received set of elements does not equal expected.") }
+                else { XCTFail("Received set of elements does not equal expected") }
         }
         
         let lastIndex = input.count - 1
@@ -132,6 +132,6 @@ final class DistinctTests: XCTestCase {
         
         defer { sub.cancel() }
         
-        wait(for: [ex1, ex2, ex3], timeout: 15)
+        wait(for: [ex1, ex2, ex3], timeout: 2)
     }
 }
