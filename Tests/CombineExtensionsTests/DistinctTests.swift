@@ -52,9 +52,7 @@ final class DistinctTests: XCTestCase {
             [WWDC(year: 2016), WWDC(year: 2017), WWDC(year: 2015)],
             [WWDC(year: 2015), WWDC(year: 2017), WWDC(year: 2018), WWDC(year: 2014)],
             [WWDC(year: 2014), WWDC(year: 2020), WWDC(year: 2021)],
-        ]
-            .publisher
-            .distinct()
+        ].publisher.distinct()
         
         let expected = [
             [WWDC(year: 2016), WWDC(year: 2017), WWDC(year: 2015)],
@@ -64,6 +62,34 @@ final class DistinctTests: XCTestCase {
         
         let ex = pub.expectOutput(expected)
         
+        wait(for: [ex], timeout: 2)
+    }
+
+    func testDistinctWithTransformer() throws {
+        struct WWDC: Equatable {
+            let id: String
+            let year: Int
+
+            init(_ year: Int) {
+                id = String(year)
+                self.year = year
+            }
+        }
+
+        let pub = [
+            [WWDC(2016), WWDC(2017), WWDC(2015)],
+            [WWDC(2015), WWDC(2017), WWDC(2018), WWDC(2014)],
+            [WWDC(2014), WWDC(2020), WWDC(2021)],
+        ].publisher.distinct(using: { $0.id })
+
+        let expected = [
+            [WWDC(2016), WWDC(2017), WWDC(2015)],
+            [WWDC(2018), WWDC(2014)],
+            [WWDC(2020), WWDC(2021)],
+        ]
+
+        let ex = pub.expectOutput(expected)
+
         wait(for: [ex], timeout: 2)
     }
     
