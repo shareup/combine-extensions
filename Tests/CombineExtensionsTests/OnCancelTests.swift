@@ -7,7 +7,7 @@ class OnCancelTests: XCTestCase {
         let subject = PassthroughSubject<Int, _Err>()
 
         var receivedValues = [Int]()
-        var receivedCompletion: Subscribers.Completion<_Err>? = nil
+        var receivedCompletion: Subscribers.Completion<_Err>?
         var onCancelCalled = false
 
         let cancellable = subject.sink(
@@ -31,7 +31,7 @@ class OnCancelTests: XCTestCase {
         let subject = PassthroughSubject<Int, _Err>()
 
         var receivedValues = [Int]()
-        var receivedCompletion: Subscribers.Completion<_Err>? = nil
+        var receivedCompletion: Subscribers.Completion<_Err>?
         var onCancelCalled = false
 
         let cancellable = subject.sink(

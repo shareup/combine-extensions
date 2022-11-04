@@ -1,16 +1,14 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "Synchronized",
-        "repositoryURL": "https://github.com/shareup/synchronized.git",
-        "state": {
-          "branch": null,
-          "revision": "f01e4a1ee5fbf586d612a8dc0bc068603f6b9450",
-          "version": "3.0.0"
-        }
+  "pins" : [
+    {
+      "identity" : "synchronized",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/shareup/synchronized.git",
+      "state" : {
+        "revision" : "32f43e551c0c552378467f5f31486d0715374a08",
+        "version" : "3.2.0"
       }
-    ]
-  },
-  "version": 1
+    }
+  ],
+  "version" : 2
 }

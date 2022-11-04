@@ -1,8 +1,8 @@
-import Foundation
 import Combine
+import Foundation
 
-extension ConnectablePublisher {
-    public func eraseToAnyConnectablePublisher() -> AnyConnectablePublisher<Output, Failure> {
+public extension ConnectablePublisher {
+    func eraseToAnyConnectablePublisher() -> AnyConnectablePublisher<Output, Failure> {
         AnyConnectablePublisher(self)
     }
 }
@@ -31,7 +31,7 @@ private class _Box<Output, Failure: Error>: ConnectablePublisher {
     init() {}
 
     func receive<S: Subscriber>(
-        subscriber: S
+        subscriber _: S
     ) where S.Failure == Failure, S.Input == Output {
         preconditionFailure()
     }
@@ -48,13 +48,13 @@ private final class Box<Wrapped: ConnectablePublisher>: _Box<Wrapped.Output, Wra
         wrapped = publisher
     }
 
-    fileprivate override func receive<S: Subscriber>(
+    override fileprivate func receive<S: Subscriber>(
         subscriber: S
     ) where S.Failure == Failure, S.Input == Output {
         wrapped.receive(subscriber: subscriber)
     }
 
-    fileprivate override func connect() -> Cancellable {
+    override fileprivate func connect() -> Cancellable {
         wrapped.connect()
     }
 }

@@ -1,11 +1,12 @@
-import XCTest
 import Combine
 import CombineExtensions
 import CombineTestExtensions
+import XCTest
 
 final class AnyConnectablePublisherTests: XCTestCase {
     func testErasedTimerCanStillBeConnectedTo() throws {
-        let pub = Timer.publish(every: 0.01, on: .main, in: .common).eraseToAnyConnectablePublisher()
+        let pub = Timer.publish(every: 0.01, on: .main, in: .common)
+            .eraseToAnyConnectablePublisher()
 
         var dates = [Date]()
         var subscriptions = Set<AnyCancellable>()

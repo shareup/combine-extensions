@@ -1,6 +1,6 @@
-import XCTest
 import Combine
 import CombineExtensions
+import XCTest
 
 final class EnumeratedTests: XCTestCase {
     func testEnumeratedWithArrayPublisher() throws {
@@ -11,7 +11,7 @@ final class EnumeratedTests: XCTestCase {
 
         var expected = (0, 10)
         let ex = pub.expectOutput(
-            { (index, value) in
+            { index, value in
                 XCTAssertEqual(expected.0, index)
                 XCTAssertEqual(String(expected.1), value)
                 expected = (expected.0 + 1, expected.1 + 1)
@@ -30,7 +30,7 @@ final class EnumeratedTests: XCTestCase {
 
         var expected = [(Int.max, 1), (Int.min, 2), (Int.min + 1, 3)]
         let ex = pub
-            .expectOutput { (index, number) in
+            .expectOutput { index, number in
                 let expectedOutput = expected.removeFirst()
                 XCTAssertEqual(expectedOutput.0, index)
                 XCTAssertEqual(expectedOutput.1, number)
@@ -49,7 +49,7 @@ final class EnumeratedTests: XCTestCase {
 
         var expected = (100, 10)
         let ex = pub.expectOutput(
-            { (index, value) in
+            { index, value in
                 XCTAssertEqual(expected.0, index)
                 XCTAssertEqual(String(expected.1), value)
                 expected = (expected.0 + 1, expected.1 + 1)
@@ -73,7 +73,7 @@ final class EnumeratedTests: XCTestCase {
             .enumerated()
 
         let ex = pub.expectOutput(
-            { (index, value) in
+            { index, value in
                 XCTAssertEqual(matrix[index], value)
                 return index == 2 ? .finished : .moreExpected
             },
@@ -94,7 +94,7 @@ final class EnumeratedTests: XCTestCase {
             (2, Array("o".utf8)),
         ]
         let ex = pub.expectOutput(
-            { (index, value) in
+            { index, value in
                 let first = expected.removeFirst()
                 XCTAssertEqual(first.0, index)
                 XCTAssertEqual(first.1, value)

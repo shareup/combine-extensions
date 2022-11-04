@@ -125,9 +125,9 @@ class ReduceLatestTests: XCTestCase {
                     (Result(2, "A"), Result(3, "C")),
                 ],
                 outputComparator:
-                    { (expected: (Result, Result), actual: (Result, Result)) -> Bool in
-                        expected.0 == actual.0 && expected.1 == actual.1
-                    }
+                { (expected: (Result, Result), actual: (Result, Result)) -> Bool in
+                    expected.0 == actual.0 && expected.1 == actual.1
+                }
             )
 
         pub1.send(1)

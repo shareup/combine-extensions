@@ -1,9 +1,9 @@
-import Foundation
 import Combine
+import Foundation
 import Synchronized
 
-extension Publisher {
-    public func throttle<Regulator: Publisher>(
+public extension Publisher {
+    func throttle<Regulator: Publisher>(
         while regulator: Regulator,
         latest: Bool = true
     ) -> Publishers.ThrottleWhile<Self, Regulator> {
@@ -11,12 +11,11 @@ extension Publisher {
     }
 }
 
-extension Publishers {
-    public struct ThrottleWhile<
+public extension Publishers {
+    struct ThrottleWhile<
         Upstream: Publisher,
         Regulator: Publisher
     >: Publisher where Regulator.Output == Bool {
-
         public typealias Output = Upstream.Output
         public typealias Failure = Upstream.Failure
 
@@ -45,7 +44,7 @@ extension Publishers {
 }
 
 private final class ThrottleWhileSubscription<Upstream, Regulator, S>: Subscription, Subscriber
-where
+    where
     Upstream: Publisher,
     Regulator: Publisher,
     S: Subscriber,
@@ -114,7 +113,7 @@ where
         self.latest = latest
         state = .waitingForSubscription(subscriber)
 
-        self.regulatorSubscription = regulator.sink(
+        regulatorSubscription = regulator.sink(
             receiveValue: onReceiveRegulatorValue,
             receiveCompletion: onReceiveRegulatorCompletion
         )
@@ -157,7 +156,7 @@ where
         let shouldPublish: Bool = lock.locked {
             switch state {
             case let .ready(subscriber, subscription, previousInput):
-                guard let previousInput = previousInput else {
+                guard let previousInput else {
                     state = .ready(subscriber, subscription, input)
                     return true
                 }
@@ -170,7 +169,7 @@ where
         }
 
         guard shouldPublish else { return .none }
-        
+
         publishIfPossible()
         return .none
     }
@@ -180,7 +179,7 @@ where
     }
 
     private func publishIfPossible() {
-        let subAndOutput: (S, Input)? =  lock.locked {
+        let subAndOutput: (S, Input)? = lock.locked {
             guard demand > .none, !isThrottled else { return nil }
             guard case let .ready(subscriber, subscription, _output) = state,
                   let output = _output
@@ -218,14 +217,15 @@ where
 
     private var onReceiveRegulatorValue: (Bool) -> Void {
         { [weak self] isThrottled in
-            guard let self = self else { return }
+            guard let self else { return }
             self.lock.locked { self.isThrottled = isThrottled }
             self.publishIfPossible()
         }
     }
 
-    private var onReceiveRegulatorCompletion: (Subscribers.Completion<Regulator.Failure>) -> Void {
+    private var onReceiveRegulatorCompletion: (Subscribers.Completion<Regulator.Failure>)
+        -> Void
+    {
         { [weak self] _ in self?.complete(with: .finished) }
     }
 }
-

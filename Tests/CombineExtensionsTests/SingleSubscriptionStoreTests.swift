@@ -1,7 +1,7 @@
-import XCTest
 import Combine
 import CombineExtensions
 import CombineTestExtensions
+import XCTest
 
 class SingleSubscriptionStoreTests: XCTestCase {
     func testSingleSubscriptionStoreIsEmptyAndContains() throws {

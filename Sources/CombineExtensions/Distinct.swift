@@ -1,21 +1,20 @@
-import Foundation
 import Combine
+import Foundation
 
-extension Publisher {
-    public func distinct<T: Hashable>() -> Publishers.Distinct<Self, T> where Output == Array<T> {
+public extension Publisher {
+    func distinct<T: Hashable>() -> Publishers.Distinct<Self, T> where Output == [T] {
         Publishers.Distinct(upstream: self)
     }
 
-    public func distinct<T, V: Hashable>(
-        using transformer: @escaping (T) -> V
-    ) -> Publishers.Distinct<Self, T> where Output == Array<T> {
+    func distinct<T>(
+        using transformer: @escaping (T) -> some Hashable
+    ) -> Publishers.Distinct<Self, T> where Output == [T] {
         Publishers.Distinct(upstream: self, transformer: transformer)
     }
 }
 
-extension Publishers {
-    public struct Distinct<Upstream: Publisher, T>: Publisher where Upstream.Output == Array<T> {
-
+public extension Publishers {
+    struct Distinct<Upstream: Publisher, T>: Publisher where Upstream.Output == [T] {
         public typealias Output = Upstream.Output
         public typealias Failure = Upstream.Failure
 
@@ -51,7 +50,7 @@ extension Publishers {
         public func receive<S: Subscriber>(
             subscriber: S
         ) where Output == S.Input, Failure == S.Failure {
-            self.upstream
+            upstream
                 .compactMap { (values: Upstream.Output) -> Upstream.Output? in
                     let newValues = values.filter(isUnique)
                     return newValues.isEmpty ? nil : newValues
@@ -60,5 +59,3 @@ extension Publishers {
         }
     }
 }
-
-

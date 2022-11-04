@@ -13,7 +13,7 @@ final class TestSchedulerTests: XCTestCase {
         Just(1)
             .delay(for: 1, scheduler: scheduler)
             .sink { value = $0 }
-            .store(in: &self.cancellables)
+            .store(in: &cancellables)
 
         XCTAssertEqual(value, nil)
 
@@ -37,7 +37,7 @@ final class TestSchedulerTests: XCTestCase {
         Just(1)
             .delay(for: 1_000_000_000, scheduler: scheduler)
             .sink { value = $0 }
-            .store(in: &self.cancellables)
+            .store(in: &cancellables)
 
         XCTAssertEqual(value, nil)
 
@@ -55,7 +55,7 @@ final class TestSchedulerTests: XCTestCase {
         Just(1)
             .delay(for: 0, scheduler: scheduler)
             .sink { value = $0 }
-            .store(in: &self.cancellables)
+            .store(in: &cancellables)
 
         XCTAssertEqual(value, nil)
 
@@ -70,7 +70,7 @@ final class TestSchedulerTests: XCTestCase {
         Just(1)
             .subscribe(on: scheduler)
             .sink { value = $0 }
-            .store(in: &self.cancellables)
+            .store(in: &cancellables)
 
         XCTAssertEqual(value, nil)
 
@@ -85,7 +85,7 @@ final class TestSchedulerTests: XCTestCase {
         Just(1)
             .receive(on: scheduler)
             .sink { value = $0 }
-            .store(in: &self.cancellables)
+            .store(in: &cancellables)
 
         XCTAssertEqual(value, nil)
 
@@ -101,9 +101,9 @@ final class TestSchedulerTests: XCTestCase {
             scheduler.now,
             .init(DispatchTime(uptimeNanoseconds: 1)),
             """
-    Default of dispatchQueue.now should not be 0 because that has special meaning in DispatchTime's \
-    initializer and causes it to default to DispatchTime.now().
-    """
+            Default of dispatchQueue.now should not be 0 because that has special meaning in DispatchTime's \
+            initializer and causes it to default to DispatchTime.now().
+            """
         )
     }
 
@@ -113,10 +113,10 @@ final class TestSchedulerTests: XCTestCase {
         var values: [Int] = []
 
         testScheduler.schedule(after: testScheduler.now, interval: 2) { values.append(1) }
-            .store(in: &self.cancellables)
+            .store(in: &cancellables)
 
         testScheduler.schedule(after: testScheduler.now, interval: 1) { values.append(42) }
-            .store(in: &self.cancellables)
+            .store(in: &cancellables)
 
         XCTAssertEqual(values, [])
         testScheduler.advance()

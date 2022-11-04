@@ -53,7 +53,7 @@ public extension Publishers {
                 b: b,
                 c: Just(()).setFailureType(to: Failure.self),
                 d: Just(()).setFailureType(to: Failure.self),
-                transform: { (aOut, bOut, _, _) -> Output in
+                transform: { aOut, bOut, _, _ -> Output in
                     self.transform(aOut, bOut)
                 }
             )
@@ -92,7 +92,7 @@ public extension Publishers {
                 b: b,
                 c: c,
                 d: Just(()).setFailureType(to: Failure.self),
-                transform: { (aOut, bOut, cOut, _) -> Output in
+                transform: { aOut, bOut, cOut, _ -> Output in
                     self.transform(aOut, bOut, cOut)
                 }
             )
@@ -100,7 +100,13 @@ public extension Publishers {
         }
     }
 
-    struct ReduceLatest4<A: Publisher, B: Publisher, C: Publisher, D: Publisher, Output>: Publisher
+    struct ReduceLatest4<
+        A: Publisher,
+        B: Publisher,
+        C: Publisher,
+        D: Publisher,
+        Output
+    >: Publisher
         where A.Failure == B.Failure, A.Failure == C.Failure, A.Failure == D.Failure
     {
         public typealias Failure = A.Failure
@@ -141,7 +147,15 @@ public extension Publishers {
     }
 }
 
-private final class ReduceLatestSubscription<Subscriber, A, B, C, D, Output, Failure>: Subscription
+private final class ReduceLatestSubscription<
+    Subscriber,
+    A,
+    B,
+    C,
+    D,
+    Output,
+    Failure
+>: Subscription
     where
     Subscriber: Combine.Subscriber,
     Subscriber.Input == Output,

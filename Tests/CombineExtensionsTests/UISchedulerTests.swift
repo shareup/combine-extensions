@@ -11,8 +11,8 @@ final class UISchedulerTests: XCTestCase {
     }
 
     func testRunsOnMain() {
-        let queue = DispatchQueue.init(label: "queue")
-        let exp = self.expectation(description: "wait")
+        let queue = DispatchQueue(label: "queue")
+        let exp = expectation(description: "wait")
 
         var worked = false
         queue.async {
@@ -24,8 +24,8 @@ final class UISchedulerTests: XCTestCase {
             }
             XCTAssertFalse(worked)
         }
-        
-        self.wait(for: [exp], timeout: 1)
+
+        wait(for: [exp], timeout: 1)
 
         XCTAssertTrue(worked)
     }

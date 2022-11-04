@@ -1,6 +1,6 @@
 import Combine
-import XCTest
 import CombineTestExtensions
+import XCTest
 
 class PublisherTestExtensionsTests: XCTestCase {
     func testExpectOutputWithEvaluator() throws {
@@ -8,7 +8,6 @@ class PublisherTestExtensionsTests: XCTestCase {
         let evaluator = { (input: Int) -> OutputExpectation in
             XCTAssertEqual(ints.removeFirst(), input)
             return ints.isEmpty ? .finished : .moreExpected
-
         }
         let ex = ints.publisher.expectOutput(evaluator, expectToFinish: true)
 
@@ -23,7 +22,7 @@ class PublisherTestExtensionsTests: XCTestCase {
         let ex = subject
             .receive(on: DispatchQueue(label: "test"))
             .expectOutputAndFailure(
-                { (output) -> OutputExpectation in
+                { output -> OutputExpectation in
                     XCTAssertEqual(ints.removeFirst(), output)
                     return ints.isEmpty ? .finished : .moreExpected
                 },
