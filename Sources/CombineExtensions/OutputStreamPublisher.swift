@@ -18,8 +18,8 @@ public extension Publisher where Output == [UInt8], Failure == Error {
     }
 }
 
-extension Publishers {
-    public struct OutputStream<Upstream: Publisher>: Publisher
+public extension Publishers {
+    struct OutputStream<Upstream: Publisher>: Publisher
         where Upstream.Output == [UInt8], Upstream.Failure == Error
     {
         public typealias Output = Int
@@ -229,7 +229,6 @@ private final class OutputStreamSubscription<S: Subscriber>: Subscription, Subsc
         subscriber?.receive(completion: completion)
     }
 }
-
 
 private enum StreamState<S: Subscriber> {
     case awaitingSubscription(OutputStream, S)

@@ -8,7 +8,7 @@ class OutputStreamPublisherTests: XCTestCase {
     private let bufferCapacity: Int = 10
 
     private var bytes: [UInt8] {
-        (0..<bufferCapacity).map { buffer[$0] }
+        (0 ..< bufferCapacity).map { buffer[$0] }
     }
 
     override func setUpWithError() throws {
@@ -47,7 +47,7 @@ class OutputStreamPublisherTests: XCTestCase {
                 capacity: bufferCapacity
             )
             .sink(
-                receiveValue: { (bytesCount) in
+                receiveValue: { bytesCount in
                     XCTAssertEqual(1, bytesCount)
                     outputIndex += 1
                     outputEx.fulfill()
@@ -125,13 +125,12 @@ class OutputStreamPublisherTests: XCTestCase {
                 }
             )
 
-
         input.forEach { subject.send([$0]) }
 
         wait(for: [cancelEx, ex], timeout: 2)
 
         XCTAssertEqual(
-            [72, 101, 108, 108, 111, 33, 72, 101, 108, 108,] as [UInt8],
+            [72, 101, 108, 108, 111, 33, 72, 101, 108, 108] as [UInt8],
             bytes
         )
     }
@@ -152,7 +151,7 @@ class OutputStreamPublisherTests: XCTestCase {
                 toBuffer: buffer,
                 capacity: bufferCapacity
             )
-            .expectOutput((0..<6).map { _ in 1 }, expectToFinish: true)
+            .expectOutput((0 ..< 6).map { _ in 1 }, expectToFinish: true)
 
         wait(for: [ex], timeout: 2)
 

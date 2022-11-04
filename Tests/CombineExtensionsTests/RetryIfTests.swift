@@ -1,7 +1,7 @@
-import XCTest
 import Combine
 import CombineExtensions
 import CombineTestExtensions
+import XCTest
 
 final class RetryIfTests: XCTestCase {
     func testRetryIfAfterFixedInterval() throws {
@@ -191,16 +191,15 @@ private enum Err: Error, Equatable {
 private extension Publisher where Output == Int, Failure == Never {
     func failOnOutputIndex(_ indexes: [Int], error: Err) -> AnyPublisher<Int, Err> {
         var index = 0
-        return self
-            .tryMap { (int: Int) throws -> Int in
-                defer { index += 1 }
-                if indexes.contains(index) {
-                    throw error
-                } else {
-                    return int
-                }
+        return tryMap { (int: Int) throws -> Int in
+            defer { index += 1 }
+            if indexes.contains(index) {
+                throw error
+            } else {
+                return int
             }
-            .mapError { $0 as! Err }
-            .eraseToAnyPublisher()
+        }
+        .mapError { $0 as! Err }
+        .eraseToAnyPublisher()
     }
 }

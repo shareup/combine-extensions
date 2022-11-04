@@ -16,9 +16,10 @@ public struct UIScheduler: Scheduler {
     public static let shared = Self()
 
     public var now: SchedulerTimeType { DispatchQueue.main.now }
-    public var minimumTolerance: SchedulerTimeType.Stride { DispatchQueue.main.minimumTolerance }
+    public var minimumTolerance: SchedulerTimeType
+        .Stride { DispatchQueue.main.minimumTolerance }
 
-    public func schedule(options: SchedulerOptions? = nil, _ action: @escaping () -> Void) {
+    public func schedule(options _: SchedulerOptions? = nil, _ action: @escaping () -> Void) {
         if DispatchQueue.getSpecific(key: key) == value {
             action()
         } else {
@@ -29,7 +30,7 @@ public struct UIScheduler: Scheduler {
     public func schedule(
         after date: SchedulerTimeType,
         tolerance: SchedulerTimeType.Stride,
-        options: SchedulerOptions? = nil,
+        options _: SchedulerOptions? = nil,
         _ action: @escaping () -> Void
     ) {
         DispatchQueue.main.schedule(
@@ -44,7 +45,7 @@ public struct UIScheduler: Scheduler {
         after date: SchedulerTimeType,
         interval: SchedulerTimeType.Stride,
         tolerance: SchedulerTimeType.Stride,
-        options: SchedulerOptions? = nil,
+        options _: SchedulerOptions? = nil,
         _ action: @escaping () -> Void
     ) -> Cancellable {
         DispatchQueue.main.schedule(

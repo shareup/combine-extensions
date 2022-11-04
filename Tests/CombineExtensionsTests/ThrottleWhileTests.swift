@@ -1,6 +1,6 @@
-import XCTest
 import Combine
 import CombineExtensions
+import XCTest
 
 final class ThrottleWhileTests: XCTestCase {
     func testLatestDoesNotPublishUntilRegulatorIsSetToFalse() throws {

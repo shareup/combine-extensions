@@ -1,9 +1,9 @@
-import Foundation
 import Combine
+import Foundation
 import Synchronized
 
-extension Publisher {
-    public func retry<Context: Scheduler>(
+public extension Publisher {
+    func retry<Context: Scheduler>(
         after interval: @escaping (Int) -> Context.SchedulerTimeType.Stride,
         tolerance: Context.SchedulerTimeType.Stride? = nil,
         scheduler: Context,
@@ -18,7 +18,7 @@ extension Publisher {
         )
     }
 
-    public func retryIf<Context: Scheduler>(
+    func retryIf<Context: Scheduler>(
         _ predicate: @escaping (Failure) -> Bool,
         after interval: Context.SchedulerTimeType.Stride,
         tolerance: Context.SchedulerTimeType.Stride? = nil,
@@ -34,7 +34,7 @@ extension Publisher {
         )
     }
 
-    public func retryIf<Context: Scheduler>(
+    func retryIf<Context: Scheduler>(
         _ predicate: @escaping (Failure) -> Bool,
         after interval: @escaping (Int) -> Context.SchedulerTimeType.Stride,
         tolerance: Context.SchedulerTimeType.Stride? = nil,
@@ -98,7 +98,7 @@ public extension Publishers {
 }
 
 private final class RetryIfSubscription<Upstream, Context, S>: Subscription, Subscriber
-where
+    where
     Upstream: Publisher,
     Context: Scheduler,
     S: Subscriber,
@@ -165,7 +165,7 @@ where
         self.tolerance = tolerance
         self.scheduler = scheduler
         self.options = options
-        self.state = .waitingForSubscription(subscriber)
+        state = .waitingForSubscription(subscriber)
     }
 
     deinit {

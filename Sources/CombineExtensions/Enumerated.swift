@@ -1,15 +1,15 @@
-import Foundation
 import Combine
+import Foundation
 import Synchronized
 
-extension Publisher {
-    public func enumerated(startIndex: Int = 0) -> Publishers.Enumerated<Self> {
+public extension Publisher {
+    func enumerated(startIndex: Int = 0) -> Publishers.Enumerated<Self> {
         Publishers.Enumerated(upstream: self, startIndex: startIndex)
     }
 }
 
-extension Publishers {
-    public struct Enumerated<Upstream: Publisher>: Publisher {
+public extension Publishers {
+    struct Enumerated<Upstream: Publisher>: Publisher {
         public typealias Output = (Int, Upstream.Output)
         public typealias Failure = Upstream.Failure
 
@@ -25,9 +25,9 @@ extension Publishers {
             subscriber: S
         ) where Output == S.Input, Failure == S.Failure {
             let lock = Lock()
-            var index = self.startIndex
+            var index = startIndex
 
-            self.upstream
+            upstream
                 .map { (value: Upstream.Output) -> (Int, Upstream.Output) in
                     let i: Int = lock.locked {
                         let i = index

@@ -1,5 +1,5 @@
-import Foundation
 import Combine
+import Foundation
 import Synchronized
 
 public extension Data {
@@ -14,8 +14,8 @@ public extension URL {
     }
 }
 
-extension Publishers {
-    public struct InputStream: Publisher {
+public extension Publishers {
+    struct InputStream: Publisher {
         public typealias Output = [UInt8]
         public typealias Failure = Error
 
@@ -134,7 +134,7 @@ private final class InputStreamSubscription<S: Subscriber>: Subscription
             case let .streaming(stream):
                 var bytes = [UInt8](repeating: 0, count: maxChunkLength)
                 let bytesRead = stream.read(&bytes, maxLength: maxChunkLength)
-                
+
                 demand -= .max(1)
 
                 switch bytesRead {
@@ -145,7 +145,7 @@ private final class InputStreamSubscription<S: Subscriber>: Subscription
                     stream.close()
                     return .finished
                 default:
-                    let newDemand = sub.receive(Array(bytes[0..<bytesRead]))
+                    let newDemand = sub.receive(Array(bytes[0 ..< bytesRead]))
                     if newDemand != .none {
                         demand += newDemand
                     }

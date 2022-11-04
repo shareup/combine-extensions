@@ -1,5 +1,5 @@
-import Foundation
 import Combine
+import Foundation
 import XCTest
 
 public enum OutputExpectation: Equatable {
@@ -107,7 +107,7 @@ public extension Publisher {
     ) -> XCTestExpectation {
         _expectOutput(
             .custom(outputEvaluator),
-            outputComparator: { _, _ in fatalError()},
+            outputComparator: { _, _ in fatalError() },
             completion: failsOnCompletion ? .none : .any,
             failureComparator: { _, _ in fatalError() },
             description: description,
@@ -125,7 +125,7 @@ public extension Publisher {
     ) -> XCTestExpectation {
         _expectOutput(
             .custom(outputEvaluator),
-            outputComparator: { _, _ in fatalError()},
+            outputComparator: { _, _ in fatalError() },
             completion: expectToFinish ? .finished : .any,
             failureComparator: { _, _ in fatalError() },
             description: description,
@@ -143,7 +143,7 @@ public extension Publisher {
     ) -> XCTestExpectation {
         _expectOutput(
             .custom(outputEvaluator),
-            outputComparator: { _, _ in fatalError()},
+            outputComparator: { _, _ in fatalError() },
             completion: .custom(failureEvaluator),
             failureComparator: { _, _ in fatalError() },
             description: description,
@@ -163,7 +163,7 @@ public extension Publisher {
         let ex = _Expectation(description: description)
         ex.expectedFulfillmentCount = count
         let token = sink(
-            receiveCompletion: { (completion) in
+            receiveCompletion: { completion in
                 if failsOnCompletion {
                     XCTFail(
                         "Should not have completed: '\(String(describing: completion))'",
@@ -243,7 +243,7 @@ public extension Publisher {
     ) -> XCTestExpectation {
         _expectOutput(
             failsOnOutput ? .none : .any,
-            outputComparator: { _, _ in fatalError()},
+            outputComparator: { _, _ in fatalError() },
             completion: .custom(failureEvaluator),
             failureComparator: { _, _ in fatalError() },
             description: description,
@@ -259,7 +259,7 @@ public extension Publisher {
         description: String? = nil,
         file: StaticString = #file,
         line: UInt = #line
-    )  -> XCTestExpectation {
+    ) -> XCTestExpectation {
         _expectOutput(
             failsOnOutput ? .none : .any,
             outputComparator: { _, _ in fatalError() },
@@ -294,7 +294,7 @@ public extension Publisher {
         description: String? = nil,
         file: StaticString = #file,
         line: UInt = #line
-    )  -> XCTestExpectation {
+    ) -> XCTestExpectation {
         _expectOutput(
             failsOnOutput ? .none : .any,
             outputComparator: { _, _ in fatalError() },
@@ -322,12 +322,12 @@ private extension Publisher {
 
         let ex = _Expectation(description: description)
         ex.assertForOverFulfill = true
-        if expectedOutput.shouldWaitForOutput && expectedCompletion.shouldWaitForCompletion {
+        if expectedOutput.shouldWaitForOutput, expectedCompletion.shouldWaitForCompletion {
             ex.expectedFulfillmentCount = 2
         }
 
         let token = sink(
-            receiveCompletion: { (completion) in
+            receiveCompletion: { completion in
                 switch (expectedCompletion, completion) {
                 case (.any, _):
                     break
@@ -400,7 +400,7 @@ private extension Publisher {
                     ex.fulfill()
                 }
             },
-            receiveValue: { (receivedOutput) in
+            receiveValue: { receivedOutput in
                 switch expectedOutput {
                 case .any:
                     break
@@ -419,7 +419,7 @@ private extension Publisher {
                         }
                         return
                     }
-                    
+
                     let expected = expectedValues.removeFirst()
                     if !outputComparator(expected, receivedOutput) {
                         XCTFail(

@@ -1,5 +1,5 @@
-import Foundation
 import Combine
+import Foundation
 
 public extension Cancellable {
     func onCancel(_ block: @escaping () -> Void) -> AnyCancellable {

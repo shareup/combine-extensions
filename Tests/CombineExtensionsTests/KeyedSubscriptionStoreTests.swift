@@ -1,7 +1,7 @@
-import XCTest
 import Combine
 import CombineExtensions
 import CombineTestExtensions
+import XCTest
 
 class KeyedSubscriptionStoreTests: XCTestCase {
     func testKeyedSubscriptionStoreIsEmptyAndContains() throws {
@@ -114,4 +114,3 @@ class KeyedSubscriptionStoreTests: XCTestCase {
         XCTAssertEqual([2], receivedFrom2)
     }
 }
-
