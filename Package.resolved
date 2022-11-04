@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/shareup/synchronized.git",
       "state" : {
-        "revision" : "32f43e551c0c552378467f5f31486d0715374a08",
-        "version" : "3.2.0"
+        "revision" : "3a07451bbd0933933804c7d9a92ef2fa57b6766f",
+        "version" : "4.0.0"
       }
     }
   ],

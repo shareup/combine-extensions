@@ -20,7 +20,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/shareup/synchronized.git",
-            from: "3.2.0"
+            from: "4.0.0"
         ),
     ],
     targets: [
