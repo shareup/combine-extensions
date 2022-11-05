@@ -33,7 +33,12 @@ let package = Package(
                 ),
             ]
         ),
-        .target(name: "CombineTestExtensions"),
+        .target(
+            name: "CombineTestExtensions",
+            cSettings: [
+                .define("APPLICATION_EXTENSION_API_ONLY", to: "YES"),
+            ]
+        ),
         .testTarget(
             name: "CombineExtensionsTests",
             dependencies: ["CombineExtensions", "CombineTestExtensions"]
