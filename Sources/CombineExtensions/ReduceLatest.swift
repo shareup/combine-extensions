@@ -54,7 +54,7 @@ public extension Publishers {
                 c: Just(()).setFailureType(to: Failure.self),
                 d: Just(()).setFailureType(to: Failure.self),
                 transform: { aOut, bOut, _, _ -> Output in
-                    self.transform(aOut, bOut)
+                    transform(aOut, bOut)
                 }
             )
             subscriber.receive(subscription: subscription)
@@ -93,7 +93,7 @@ public extension Publishers {
                 c: c,
                 d: Just(()).setFailureType(to: Failure.self),
                 transform: { aOut, bOut, cOut, _ -> Output in
-                    self.transform(aOut, bOut, cOut)
+                    transform(aOut, bOut, cOut)
                 }
             )
             subscriber.receive(subscription: subscription)
