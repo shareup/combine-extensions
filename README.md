@@ -25,7 +25,7 @@ A collection of useful extensions for Apple's [Combine framework](https://develo
 Add CombineExtensions to the dependencies section of your package.swift file.
 
 ```swift
-.package(url: "https://github.com/shareup/combine-extensions.git", from: "5.0.0")
+.package(url: "https://github.com/shareup/combine-extensions.git", from: "6.0.0")
 ```
 
 ## License
