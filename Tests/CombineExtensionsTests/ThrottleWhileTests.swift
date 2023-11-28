@@ -206,12 +206,12 @@ final class ThrottleWhileTests: XCTestCase {
 
         wait(for: [ex], timeout: 2)
     }
-    
+
     func testThrottleWhilePublishLatestWhenUpstreamAndRegulatorFireAtTheSameTime() throws {
         let subject = PassthroughSubject<Int, Never>()
         let regulator = PassthroughSubject<Bool, Never>()
         var values = [Int]()
-        
+
         var subscription: AnyCancellable?
         let expectation = expectation(description: "stream is completed")
         subscription = subject
@@ -230,11 +230,46 @@ final class ThrottleWhileTests: XCTestCase {
                 subscription = nil
                 expectation.fulfill()
             }
-        
+
         subject.send(1)
         subject.send(2)
-        
+
         wait(for: [expectation], timeout: 2)
+        XCTAssertEqual(values, [1, 2])
+    }
+
+    func testThrottleDoesNotPublishEnqueuedEmission() throws {
+        func later(_ block: @escaping () -> Void) {
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + .milliseconds(2),
+                execute: block
+            )
+        }
+
+        let subject = PassthroughSubject<Int, Never>()
+        let regulator = PassthroughSubject<Bool, Never>()
+        var values = [Int]()
+
+        var subscription: AnyCancellable?
+        let ex = expectation(description: "stream is completed")
+        ex.expectedFulfillmentCount = 2
+        subscription = subject
+            .throttle(while: regulator, latest: true)
+            .removeDuplicates()
+            .sink { value in
+                values.append(value)
+                regulator.send(true)
+                later {
+                    regulator.send(false)
+                    ex.fulfill()
+                }
+            }
+        defer { subscription?.cancel() }
+
+        subject.send(1)
+        subject.send(2)
+
+        wait(for: [ex], timeout: 2)
         XCTAssertEqual(values, [1, 2])
     }
 }
