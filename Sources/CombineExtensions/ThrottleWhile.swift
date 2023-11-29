@@ -51,6 +51,7 @@ public extension Publishers {
                 .subscribe(regulatorSubject)
 
             upstream
+                .enumerated()
                 .handleEvents(receiveCompletion: { completion in
                     state.receiveCompletion()
                     regulatorSubject.send(completion: completion)
@@ -58,9 +59,13 @@ public extension Publishers {
                     subscription = nil
                 })
                 .combineLatest(regulatorSubject)
-                .compactMap { (output: Output, shouldThrottle: Bool) -> Output? in
-                    state.receiveValue(
+                .compactMap { (upstream: (Int, Output), shouldThrottle: Bool) -> Output? in
+                    let emissionIndex = upstream.0
+                    let output = upstream.1
+
+                    return state.receiveValue(
                         output,
+                        emissionIndex: emissionIndex,
                         shouldThrottle: shouldThrottle,
                         latest: latest
                     )
@@ -71,10 +76,10 @@ public extension Publishers {
 }
 
 private enum State<Output> {
-    case publishing
+    case publishing(Int)
     case terminal
     case throttling(Output)
-    case throttlingAndWaitingForOutput
+    case throttlingAndWaitingForOutput(Int)
     case waiting
 
     mutating func receiveCompletion() {
@@ -83,15 +88,22 @@ private enum State<Output> {
 
     mutating func receiveValue(
         _ value: Output,
+        emissionIndex: Int,
         shouldThrottle: Bool,
         latest: Bool
     ) -> Output? {
         switch self {
-        case .publishing:
+        case let .publishing(i):
             if shouldThrottle {
-                self = .throttlingAndWaitingForOutput
-                return nil
+                if emissionIndex == i {
+                    self = .throttlingAndWaitingForOutput(emissionIndex)
+                    return nil
+                } else {
+                    self = .throttling(value)
+                    return nil
+                }
             } else {
+                self = .publishing(emissionIndex)
                 return value
             }
 
@@ -105,7 +117,7 @@ private enum State<Output> {
                 }
                 return nil
             } else {
-                self = .publishing
+                self = .publishing(emissionIndex)
                 if latest {
                     return value
                 } else {
@@ -113,12 +125,16 @@ private enum State<Output> {
                 }
             }
 
-        case .throttlingAndWaitingForOutput:
-            if shouldThrottle {
-                self = .throttling(value)
+        case let .throttlingAndWaitingForOutput(i):
+            guard shouldThrottle else {
+                self = .publishing(emissionIndex)
+                return nil
+            }
+
+            if i == emissionIndex {
                 return nil
             } else {
-                self = .publishing
+                self = .throttling(value)
                 return nil
             }
 
@@ -127,7 +143,7 @@ private enum State<Output> {
                 self = .throttling(value)
                 return nil
             } else {
-                self = .publishing
+                self = .publishing(emissionIndex)
                 return value
             }
         }
