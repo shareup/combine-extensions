@@ -238,7 +238,7 @@ final class ThrottleWhileTests: XCTestCase {
         XCTAssertEqual(values, [1, 2])
     }
 
-    func testThrottleDoesNotPublishEnqueuedEmission() throws {
+    func testThrottleDoesPublishEnqueuedEmissionWhenUnthrottled() throws {
         func later(_ block: @escaping () -> Void) {
             DispatchQueue.main.asyncAfter(
                 deadline: .now() + .milliseconds(2),
