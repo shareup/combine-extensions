@@ -207,7 +207,7 @@ final class ThrottleWhileTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
-    func testThrottleWhilePublishLatestWhenRegulatorFiresFromSink() async throws {
+    func testLatestPublishesWhenRegulatorFiresFromSink() throws {
         let subject = PassthroughSubject<Int, Never>()
         let regulator = PassthroughSubject<Bool, Never>()
         var values = [Int]()
@@ -224,45 +224,126 @@ final class ThrottleWhileTests: XCTestCase {
         subject.send(2)
         regulator.send(false)
 
-        defer {
-            subscription.cancel()
-        }
+        defer { subscription.cancel() }
 
         XCTAssertEqual(values, [1, 2])
     }
-
-    func testThrottleDoesPublishEnqueuedEmissionWhenUnthrottled() throws {
-        func later(_ block: @escaping () -> Void) {
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + .milliseconds(2),
-                execute: block
-            )
-        }
-
+    
+    func testEarliestPublishesWhenRegulatorFiresFromSink() throws {
         let subject = PassthroughSubject<Int, Never>()
         let regulator = PassthroughSubject<Bool, Never>()
         var values = [Int]()
 
-        var subscription: AnyCancellable?
-        let ex = expectation(description: "stream is completed")
-        ex.expectedFulfillmentCount = 2
-        subscription = subject
-            .throttle(while: regulator, latest: true)
+        let subscription = subject
+            .throttle(while: regulator, latest: false)
             .removeDuplicates()
             .sink { value in
                 values.append(value)
                 regulator.send(true)
-                later {
-                    regulator.send(false)
-                    ex.fulfill()
-                }
             }
-        defer { subscription?.cancel() }
 
         subject.send(1)
         subject.send(2)
+        regulator.send(false)
 
-        wait(for: [ex], timeout: 2)
+        defer { subscription.cancel() }
+
         XCTAssertEqual(values, [1, 2])
+    }
+    
+    func testLatestFlippingRegulatorDoesNotResendSameEmission() throws {
+        func pause() { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
+        
+        let subject = PassthroughSubject<String, Never>()
+        let regulator = PassthroughSubject<Bool, Never>()
+        var values = [String]()
+       
+        let firstEx = expectation(description: "received first emission")
+        let compEx = expectation(description: "stream is completed")
+        let sub = subject
+            .throttle(while: regulator, latest: true)
+            .enumerated()
+            .sink(
+                receiveValue: { i, value in
+                    values.append(value)
+                    if i == 0 { firstEx.fulfill() }
+                },
+                receiveCompletion: { _ in compEx.fulfill() }
+            )
+        defer { sub.cancel() }
+        
+        subject.send("one")
+        wait(for: [firstEx], timeout: 2)
+        XCTAssertEqual(["one"], values)
+        
+        regulator.send(true)
+        regulator.send(false)
+        regulator.send(true)
+        regulator.send(false)
+        
+        pause()
+        
+        XCTAssertEqual(["one"], values)
+        
+        subject.send("one")
+        
+        regulator.send(true)
+        subject.send("two")
+        subject.send("three")
+        subject.send("four")
+        regulator.send(false)
+        
+        subject.send(completion: .finished)
+        wait(for: [compEx], timeout: 2)
+        
+        XCTAssertEqual(["one", "one", "four"], values)
+    }
+    
+    func testEarliestFlippingRegulatorDoesNotResendSameEmission() throws {
+        func pause() { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
+        
+        let subject = PassthroughSubject<String, Never>()
+        let regulator = PassthroughSubject<Bool, Never>()
+        var values = [String]()
+       
+        let firstEx = expectation(description: "received first emission")
+        let compEx = expectation(description: "stream is completed")
+        let sub = subject
+            .throttle(while: regulator, latest: false)
+            .enumerated()
+            .sink(
+                receiveValue: { i, value in
+                    values.append(value)
+                    if i == 0 { firstEx.fulfill() }
+                },
+                receiveCompletion: { _ in compEx.fulfill() }
+            )
+        defer { sub.cancel() }
+        
+        subject.send("one")
+        wait(for: [firstEx], timeout: 2)
+        XCTAssertEqual(["one"], values)
+        
+        regulator.send(true)
+        regulator.send(false)
+        regulator.send(true)
+        regulator.send(false)
+        
+        pause()
+        
+        XCTAssertEqual(["one"], values)
+        
+        subject.send("one")
+        
+        regulator.send(true)
+        subject.send("two")
+        subject.send("three")
+        subject.send("four")
+        regulator.send(false)
+        
+        subject.send(completion: .finished)
+        wait(for: [compEx], timeout: 2)
+        
+        XCTAssertEqual(["one", "one", "two"], values)
     }
 }
