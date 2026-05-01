@@ -21,13 +21,12 @@ class PublisherTestExtensionsTests: XCTestCase {
 
         let ex = subject
             .receive(on: DispatchQueue(label: "test"))
-            .expectOutputAndFailure(
-                { output -> OutputExpectation in
-                    XCTAssertEqual(ints.removeFirst(), output)
-                    return ints.isEmpty ? .finished : .moreExpected
-                },
-                failureEvaluator: { XCTAssertEqual(.correct, $0) }
-            )
+            .expectOutputAndFailure { output -> OutputExpectation in
+                XCTAssertEqual(ints.removeFirst(), output)
+                return ints.isEmpty ? .finished : .moreExpected
+            } failureEvaluator: {
+                XCTAssertEqual(.correct, $0)
+            }
 
         subject.send(1)
         subject.send(2)

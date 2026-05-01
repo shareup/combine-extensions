@@ -161,7 +161,7 @@ final class DistinctTests: XCTestCase {
             }
 
         let lastIndex = input.count - 1
-        input.enumerated().forEach { i, v in
+        for (i, v) in input.enumerated() {
             queue.async {
                 subject.send(v)
                 if i == lastIndex { subject.send(completion: .finished) }

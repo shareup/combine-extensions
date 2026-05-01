@@ -228,7 +228,7 @@ final class ThrottleWhileTests: XCTestCase {
 
         XCTAssertEqual(values, [1, 2])
     }
-    
+
     func testEarliestPublishesWhenRegulatorFiresFromSink() throws {
         let subject = PassthroughSubject<Int, Never>()
         let regulator = PassthroughSubject<Bool, Never>()
@@ -250,14 +250,14 @@ final class ThrottleWhileTests: XCTestCase {
 
         XCTAssertEqual(values, [1, 2])
     }
-    
+
     func testLatestFlippingRegulatorDoesNotResendSameEmission() throws {
         func pause() { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
-        
+
         let subject = PassthroughSubject<String, Never>()
         let regulator = PassthroughSubject<Bool, Never>()
         var values = [String]()
-       
+
         let firstEx = expectation(description: "received first emission")
         let compEx = expectation(description: "stream is completed")
         let sub = subject
@@ -271,41 +271,41 @@ final class ThrottleWhileTests: XCTestCase {
                 receiveCompletion: { _ in compEx.fulfill() }
             )
         defer { sub.cancel() }
-        
+
         subject.send("one")
         wait(for: [firstEx], timeout: 2)
         XCTAssertEqual(["one"], values)
-        
+
         regulator.send(true)
         regulator.send(false)
         regulator.send(true)
         regulator.send(false)
-        
+
         pause()
-        
+
         XCTAssertEqual(["one"], values)
-        
+
         subject.send("one")
-        
+
         regulator.send(true)
         subject.send("two")
         subject.send("three")
         subject.send("four")
         regulator.send(false)
-        
+
         subject.send(completion: .finished)
         wait(for: [compEx], timeout: 2)
-        
+
         XCTAssertEqual(["one", "one", "four"], values)
     }
-    
+
     func testEarliestFlippingRegulatorDoesNotResendSameEmission() throws {
         func pause() { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
-        
+
         let subject = PassthroughSubject<String, Never>()
         let regulator = PassthroughSubject<Bool, Never>()
         var values = [String]()
-       
+
         let firstEx = expectation(description: "received first emission")
         let compEx = expectation(description: "stream is completed")
         let sub = subject
@@ -319,31 +319,31 @@ final class ThrottleWhileTests: XCTestCase {
                 receiveCompletion: { _ in compEx.fulfill() }
             )
         defer { sub.cancel() }
-        
+
         subject.send("one")
         wait(for: [firstEx], timeout: 2)
         XCTAssertEqual(["one"], values)
-        
+
         regulator.send(true)
         regulator.send(false)
         regulator.send(true)
         regulator.send(false)
-        
+
         pause()
-        
+
         XCTAssertEqual(["one"], values)
-        
+
         subject.send("one")
-        
+
         regulator.send(true)
         subject.send("two")
         subject.send("three")
         subject.send("four")
         regulator.send(false)
-        
+
         subject.send(completion: .finished)
         wait(for: [compEx], timeout: 2)
-        
+
         XCTAssertEqual(["one", "one", "two"], values)
     }
 }

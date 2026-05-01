@@ -113,17 +113,14 @@ class OutputStreamPublisherTests: XCTestCase {
                 toBuffer: buffer,
                 capacity: bufferCapacity
             )
-            .expectOutputAndFailure(
-                { value in
-                    expectedOutputCount -= value
-                    return expectedOutputCount == 0 ? .finished : .moreExpected
-                },
-                failureEvaluator: { error in
-                    let nserror = error as NSError
-                    XCTAssertEqual(NSPOSIXErrorDomain, nserror.domain)
-                    XCTAssertEqual(12, nserror.code)
-                }
-            )
+            .expectOutputAndFailure { value in
+                expectedOutputCount -= value
+                return expectedOutputCount == 0 ? .finished : .moreExpected
+            } failureEvaluator: { error in
+                let nserror = error as NSError
+                XCTAssertEqual(NSPOSIXErrorDomain, nserror.domain)
+                XCTAssertEqual(12, nserror.code)
+            }
 
         input.forEach { subject.send([$0]) }
 
@@ -228,7 +225,7 @@ class OutputStreamPublisherTests: XCTestCase {
         completionEx.isInverted = true
         let demandEx = expectation(description: "Should have received demand")
 
-        let _ = subject
+        _ = subject
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
                 receiveRequest: { demand in
