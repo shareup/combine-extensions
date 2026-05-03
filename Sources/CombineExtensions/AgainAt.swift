@@ -363,7 +363,4 @@ private extension TimeInterval {
     }
 }
 
-// Int.max - 1024 provides headroom so that advancing a scheduler time by this
-// many nanoseconds cannot overflow when the scheduler adds its own internal
-// offset to the value.
 private let maxNanoseconds = Int.max - 1024
