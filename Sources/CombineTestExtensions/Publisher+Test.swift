@@ -516,7 +516,7 @@ private enum _Completion<Failure: Error> {
     }
 }
 
-private class _Expectation: XCTestExpectation {
+private class _Expectation: XCTestExpectation, @unchecked Sendable {
     var token: AnyCancellable?
 
     private var fulfillmentCount: Int = 0

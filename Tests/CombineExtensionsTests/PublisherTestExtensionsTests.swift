@@ -3,6 +3,50 @@ import CombineTestExtensions
 import XCTest
 
 class PublisherTestExtensionsTests: XCTestCase {
+    func testExpectOutputSingleValueOverload() throws {
+        let ex = Just(1).expectOutput(1)
+
+        wait(for: [ex], timeout: 0.5)
+    }
+
+    func testExpectOutputCount() throws {
+        let ex = [1, 2, 3]
+            .publisher
+            .expectOutput(count: 3)
+
+        wait(for: [ex], timeout: 0.5)
+    }
+
+    func testExpectToFinish() throws {
+        let ex = Empty<Int, Never>(completeImmediately: true)
+            .expectToFinish(failsOnOutput: true)
+
+        wait(for: [ex], timeout: 0.5)
+    }
+
+    func testExpectAnyFailure() throws {
+        let ex = Fail<Int, Err>(error: .wrong)
+            .expectAnyFailure(failsOnOutput: true)
+
+        wait(for: [ex], timeout: 0.5)
+    }
+
+    func testExpectOutputWithCustomOutputAndFailureComparators() throws {
+        let subject = PassthroughSubject<String, Err>()
+
+        let ex = subject.expectOutput(
+            ["hello"],
+            outputComparator: { $0.caseInsensitiveCompare($1) == .orderedSame },
+            completion: .failure(.correct),
+            failureComparator: ==
+        )
+
+        subject.send("HELLO")
+        subject.send(completion: .failure(.correct))
+
+        wait(for: [ex], timeout: 0.5)
+    }
+
     func testExpectOutputWithEvaluator() throws {
         var ints = [1, 2, 3]
         let evaluator = { (input: Int) -> OutputExpectation in
@@ -21,13 +65,12 @@ class PublisherTestExtensionsTests: XCTestCase {
 
         let ex = subject
             .receive(on: DispatchQueue(label: "test"))
-            .expectOutputAndFailure(
-                { output -> OutputExpectation in
-                    XCTAssertEqual(ints.removeFirst(), output)
-                    return ints.isEmpty ? .finished : .moreExpected
-                },
-                failureEvaluator: { XCTAssertEqual(.correct, $0) }
-            )
+            .expectOutputAndFailure { output -> OutputExpectation in
+                XCTAssertEqual(ints.removeFirst(), output)
+                return ints.isEmpty ? .finished : .moreExpected
+            } failureEvaluator: {
+                XCTAssertEqual(.correct, $0)
+            }
 
         subject.send(1)
         subject.send(2)

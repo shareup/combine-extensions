@@ -48,6 +48,79 @@ final class TestSchedulerTests: XCTestCase {
         XCTAssertEqual(value, 1)
     }
 
+    func testRunWithNoScheduledActionsDoesNotChangeNow() {
+        let scheduler = DispatchQueue.test
+        let now = scheduler.now
+
+        scheduler.run()
+
+        XCTAssertEqual(now, scheduler.now)
+    }
+
+    func testAdvanceWithNoScheduledActionsMovesNowToFinalDate() {
+        let scheduler = DispatchQueue.test
+        let now = scheduler.now
+
+        scheduler.advance(by: .seconds(3))
+
+        XCTAssertEqual(now.advanced(by: .seconds(3)), scheduler.now)
+    }
+
+    func testOneOffActionsAtSameDateRunInSchedulingOrder() {
+        let scheduler = DispatchQueue.test
+        var values = [Int]()
+
+        scheduler.schedule(after: scheduler.now.advanced(by: .seconds(1))) {
+            values.append(1)
+        }
+
+        scheduler.schedule(after: scheduler.now.advanced(by: .seconds(1))) {
+            values.append(2)
+        }
+
+        scheduler.schedule(after: scheduler.now.advanced(by: .seconds(1))) {
+            values.append(3)
+        }
+
+        scheduler.advance(by: .seconds(1))
+
+        XCTAssertEqual([1, 2, 3], values)
+    }
+
+    func testActionsScheduledForNowDuringAdvanceRunDuringSameAdvance() {
+        let scheduler = DispatchQueue.test
+        var values = [Int]()
+
+        scheduler.schedule {
+            values.append(1)
+            scheduler.schedule { values.append(3) }
+        }
+
+        scheduler.schedule { values.append(2) }
+
+        scheduler.advance()
+
+        XCTAssertEqual([1, 2, 3], values)
+    }
+
+    func testCancellingIntervalRemovesFutureScheduledActions() {
+        let scheduler = DispatchQueue.test
+        var values = [Int]()
+
+        let cancellable = scheduler.schedule(
+            after: scheduler.now,
+            interval: .seconds(1)
+        ) {
+            values.append(1)
+        }
+
+        scheduler.advance()
+        cancellable.cancel()
+        scheduler.advance(by: .seconds(5))
+
+        XCTAssertEqual([1], values)
+    }
+
     func testDelay0Advance() {
         let scheduler = DispatchQueue.test
 

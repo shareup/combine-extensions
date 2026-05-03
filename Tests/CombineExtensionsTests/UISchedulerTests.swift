@@ -4,6 +4,17 @@ import XCTest
 
 // Taken from https://github.com/pointfreeco/combine-schedulers/blob/main/Tests/CombineSchedulersTests/UISchedulerTests.swift
 final class UISchedulerTests: XCTestCase {
+    func testNowAndMinimumToleranceMirrorMainQueue() throws {
+        XCTAssertEqual(DispatchQueue.main.minimumTolerance, UIScheduler.shared.minimumTolerance)
+
+        let before = DispatchQueue.main.now
+        let schedulerNow = UIScheduler.shared.now
+        let after = DispatchQueue.main.now
+
+        XCTAssertGreaterThanOrEqual(schedulerNow, before)
+        XCTAssertLessThanOrEqual(schedulerNow, after)
+    }
+
     func testPublishersOnTheMainThreadPublishImmediately() throws {
         var didWork = false
         UIScheduler.shared.schedule { didWork = true }

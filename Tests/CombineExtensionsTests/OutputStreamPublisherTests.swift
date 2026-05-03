@@ -97,6 +97,93 @@ class OutputStreamPublisherTests: XCTestCase {
         XCTAssertEqual([72, 105, 33, 72, 105, 33, 0, 0, 0, 0] as [UInt8], bytes)
     }
 
+    func testLargeChunkFailsWithoutWritingOrPublishingByteCount() throws {
+        let subject = PassthroughSubject<[UInt8], Error>()
+        let input = (0 ..< 12).map(UInt8.init)
+
+        let ex = subject
+            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .expectFailure(
+                { error in
+                    let nserror = error as NSError
+                    XCTAssertEqual(NSPOSIXErrorDomain, nserror.domain)
+                    XCTAssertEqual(12, nserror.code)
+                },
+                failsOnOutput: true
+            )
+
+        subject.send(input)
+
+        wait(for: [ex], timeout: 2)
+
+        XCTAssertEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
+    }
+
+    func testDownstreamDemandIsForwardedToUpstream() throws {
+        let subject = PassthroughSubject<[UInt8], Error>()
+        let subscriber = OutputStreamManualSubscriber(initialDemand: .max(2))
+        var requests = [Subscribers.Demand]()
+
+        subject
+            .handleEvents(receiveRequest: { requests.append($0) })
+            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .receive(subscriber: subscriber)
+
+        XCTAssertEqual([.max(2)], requests)
+
+        subject.send([1])
+        subject.send([2])
+        subject.send([3])
+
+        XCTAssertEqual([1, 1], subscriber.values)
+        XCTAssertEqual([1, 2, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
+    }
+
+    func testNoUpstreamDemandIsRequestedUntilDownstreamRequestsDemand() throws {
+        let subject = PassthroughSubject<[UInt8], Error>()
+        let subscriber = OutputStreamManualSubscriber(initialDemand: .none)
+        var requests = [Subscribers.Demand]()
+
+        subject
+            .handleEvents(receiveRequest: { requests.append($0) })
+            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .receive(subscriber: subscriber)
+
+        subject.send([1])
+
+        XCTAssertEqual([], requests)
+        XCTAssertEqual([], subscriber.values)
+        XCTAssertEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
+
+        subscriber.subscription?.request(.max(1))
+        subject.send([2])
+
+        XCTAssertEqual([.max(1)], requests)
+        XCTAssertEqual([1], subscriber.values)
+        XCTAssertEqual([2, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
+    }
+
+    func testUpstreamFailureIsForwardedAfterWritingAvailableOutput() throws {
+        let subject = PassthroughSubject<[UInt8], Error>()
+
+        let ex = subject
+            .stream(toBuffer: buffer, capacity: bufferCapacity)
+            .expectOutputAndFailure { value in
+                XCTAssertEqual(1, value)
+                return .finished
+            } failureEvaluator: { error in
+                XCTAssertEqual(.failed, error as? OutputStreamTestError)
+            }
+
+        subject.send([42])
+        subject.send(completion: .failure(OutputStreamTestError.failed))
+        subject.send([43])
+
+        wait(for: [ex], timeout: 2)
+
+        XCTAssertEqual([42, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
+    }
+
     func testWithTooMuchData() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
         let input: [UInt8] = [
@@ -113,17 +200,14 @@ class OutputStreamPublisherTests: XCTestCase {
                 toBuffer: buffer,
                 capacity: bufferCapacity
             )
-            .expectOutputAndFailure(
-                { value in
-                    expectedOutputCount -= value
-                    return expectedOutputCount == 0 ? .finished : .moreExpected
-                },
-                failureEvaluator: { error in
-                    let nserror = error as NSError
-                    XCTAssertEqual(NSPOSIXErrorDomain, nserror.domain)
-                    XCTAssertEqual(12, nserror.code)
-                }
-            )
+            .expectOutputAndFailure { value in
+                expectedOutputCount -= value
+                return expectedOutputCount == 0 ? .finished : .moreExpected
+            } failureEvaluator: { error in
+                let nserror = error as NSError
+                XCTAssertEqual(NSPOSIXErrorDomain, nserror.domain)
+                XCTAssertEqual(12, nserror.code)
+            }
 
         input.forEach { subject.send([$0]) }
 
@@ -189,6 +273,35 @@ class OutputStreamPublisherTests: XCTestCase {
         XCTAssertEqual("Hello!", try String(contentsOf: url))
     }
 
+    func testStreamToURLAppendAddsToExistingFile() throws {
+        let subject = PassthroughSubject<[UInt8], Error>()
+
+        let tempDir = FileManager.default
+            .temporaryDirectory
+            .appendingPathComponent("testStreamToURLAppendAddsToExistingFile")
+
+        try? FileManager.default.removeItem(at: tempDir)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let url = tempDir.appendingPathComponent("text.txt")
+        try Data("Hello".utf8).write(to: url, options: .atomic)
+
+        let ex = subject
+            .stream(
+                toURL: url,
+                append: true
+            )
+            .expectToFinish()
+
+        subject.send(Array("!".utf8))
+        subject.send(completion: .finished)
+
+        wait(for: [ex], timeout: 2)
+
+        XCTAssertEqual("Hello!", try String(contentsOf: url))
+    }
+
     func testFailsForInvalidURL() throws {
         let subject = PassthroughSubject<[UInt8], Error>()
 
@@ -228,7 +341,7 @@ class OutputStreamPublisherTests: XCTestCase {
         completionEx.isInverted = true
         let demandEx = expectation(description: "Should have received demand")
 
-        let _ = subject
+        _ = subject
             .handleEvents(
                 receiveSubscription: { _ in subscriptionEx.fulfill() },
                 receiveRequest: { demand in
@@ -295,4 +408,44 @@ class OutputStreamPublisherTests: XCTestCase {
 
         XCTAssertEqual([42, 0, 0, 0, 0, 0, 0, 0, 0, 0] as [UInt8], bytes)
     }
+}
+
+private final class OutputStreamManualSubscriber: Subscriber {
+    typealias Input = Int
+    typealias Failure = Error
+
+    var subscription: Subscription?
+    private(set) var values = [Int]()
+    private(set) var completions = [Subscribers.Completion<Error>]()
+
+    private let initialDemand: Subscribers.Demand
+    private let demandOnValue: Subscribers.Demand
+
+    init(
+        initialDemand: Subscribers.Demand,
+        demandOnValue: Subscribers.Demand = .none
+    ) {
+        self.initialDemand = initialDemand
+        self.demandOnValue = demandOnValue
+    }
+
+    func receive(subscription: Subscription) {
+        self.subscription = subscription
+        if initialDemand > .none {
+            subscription.request(initialDemand)
+        }
+    }
+
+    func receive(_ input: Int) -> Subscribers.Demand {
+        values.append(input)
+        return demandOnValue
+    }
+
+    func receive(completion: Subscribers.Completion<Error>) {
+        completions.append(completion)
+    }
+}
+
+private enum OutputStreamTestError: Error, Equatable {
+    case failed
 }

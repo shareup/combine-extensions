@@ -30,6 +30,70 @@ class KeyedSubscriptionStoreTests: XCTestCase {
         XCTAssertFalse(store.containsSubscription(forKey: "third"))
     }
 
+    func testKeyedSubscriptionStoreInitializerStoresSubscriptions() throws {
+        var cancelCount = 0
+
+        let store = KeyedSubscriptionStore(
+            subscriptions: ["initial": AnyCancellable { cancelCount += 1 }]
+        )
+
+        XCTAssertFalse(store.isEmpty)
+        XCTAssertTrue(store.containsSubscription(forKey: "initial"))
+
+        store.removeAll()
+
+        XCTAssertEqual(1, cancelCount)
+    }
+
+    func testStoringSubscriptionForExistingKeyCancelsPreviousSubscription() throws {
+        let store = KeyedSubscriptionStore()
+
+        var firstCancelCount = 0
+        var secondCancelCount = 0
+
+        store.store(
+            subscription: AnyCancellable { firstCancelCount += 1 },
+            forKey: "shared"
+        )
+
+        store.store(
+            subscription: AnyCancellable { secondCancelCount += 1 },
+            forKey: "shared"
+        )
+
+        XCTAssertEqual(1, firstCancelCount)
+        XCTAssertEqual(0, secondCancelCount)
+
+        store.removeAll()
+
+        XCTAssertEqual(1, firstCancelCount)
+        XCTAssertEqual(1, secondCancelCount)
+    }
+
+    func testRemovedSubscriptionStaysActiveWhileReturnedValueIsRetained() throws {
+        let store = KeyedSubscriptionStore()
+        let subject = PassthroughSubject<Int, Never>()
+
+        var receivedValues = [Int]()
+        subject
+            .sink { receivedValues.append($0) }
+            .store(in: store, key: "subject")
+
+        var removedSubscription = store.removeSubscription(forKey: "subject")
+
+        XCTAssertNotNil(removedSubscription)
+        XCTAssertTrue(store.isEmpty)
+
+        subject.send(1)
+
+        XCTAssertEqual([1], receivedValues)
+
+        removedSubscription = nil
+        subject.send(2)
+
+        XCTAssertEqual([1], receivedValues)
+    }
+
     func testKeyedSubscriptionStoreEquatableAndHashable() throws {
         let one = KeyedSubscriptionStore()
         let two = KeyedSubscriptionStore()

@@ -20,6 +20,95 @@ class InputStreamPublisherTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
+    func testInputStreamPublisherWithEmptyDataFinishesWithoutOutput() throws {
+        let data = Data()
+
+        let ex = data
+            .publisher(maxChunkSize: 2)
+            .expectToFinish(failsOnOutput: true)
+
+        wait(for: [ex], timeout: 2)
+    }
+
+    func testInputStreamPublisherWithZeroChunkSizeFinishesWithoutOutput() throws {
+        let data = Data("Hello!".utf8)
+
+        let ex = data
+            .publisher(maxChunkSize: 0)
+            .expectToFinish(failsOnOutput: true)
+
+        wait(for: [ex], timeout: 2)
+    }
+
+    func testInputStreamPublisherPublishesMoreChunksWhenAdditionalDemandIsRequested() throws {
+        let data = Data("Hello".utf8)
+        let subscriber = InputStreamManualSubscriber(initialDemand: .max(1))
+
+        data
+            .publisher(maxChunkSize: 2)
+            .receive(subscriber: subscriber)
+
+        XCTAssertEqual(
+            [
+                Array("He".utf8),
+            ],
+            subscriber.values
+        )
+        XCTAssertTrue(subscriber.completions.isEmpty)
+
+        subscriber.subscription?.request(.max(1))
+        XCTAssertEqual(
+            [
+                Array("He".utf8),
+                Array("ll".utf8),
+            ],
+            subscriber.values
+        )
+        XCTAssertTrue(subscriber.completions.isEmpty)
+
+        subscriber.subscription?.request(.max(1))
+        XCTAssertEqual(
+            [
+                Array("He".utf8),
+                Array("ll".utf8),
+                Array("o".utf8),
+            ],
+            subscriber.values
+        )
+        XCTAssertTrue(subscriber.completions.isEmpty)
+
+        subscriber.subscription?.request(.max(1))
+        XCTAssertEqual(1, subscriber.completions.count)
+
+        guard case .finished? = subscriber.completions.first
+        else { return XCTFail("Expected finished completion") }
+    }
+
+    func testInputStreamPublisherUsesAdditionalDemandReturnedBySubscriber() throws {
+        let data = Data("Hello".utf8)
+        let subscriber = InputStreamManualSubscriber(
+            initialDemand: .max(1),
+            demandOnValue: .max(1)
+        )
+
+        data
+            .publisher(maxChunkSize: 2)
+            .receive(subscriber: subscriber)
+
+        XCTAssertEqual(
+            [
+                Array("He".utf8),
+                Array("ll".utf8),
+                Array("o".utf8),
+            ],
+            subscriber.values
+        )
+        XCTAssertEqual(1, subscriber.completions.count)
+
+        guard case .finished? = subscriber.completions.first
+        else { return XCTFail("Expected finished completion") }
+    }
+
     func testInputStreamPublisherWithLessData() throws {
         let data = Data("Hello".utf8)
 
@@ -57,6 +146,30 @@ class InputStreamPublisherTests: XCTestCase {
         let ex = url
             .publisher(maxChunkSize: 3)
             .expectOutput(expectedOutput, expectToFinish: true)
+
+        wait(for: [ex], timeout: 2)
+    }
+
+    func testInputStreamURLPublisherWithEmptyFileFinishesWithoutOutput() throws {
+        let tempDir = FileManager.default
+            .temporaryDirectory
+            .appendingPathComponent(
+                "testInputStreamURLPublisherWithEmptyFileFinishesWithoutOutput"
+            )
+
+        try? FileManager.default.removeItem(at: tempDir)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        let url = tempDir.appendingPathComponent("empty.txt")
+        try Data().write(to: url, options: .atomic)
+
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let ex = url
+            .publisher(maxChunkSize: 3)
+            .expectToFinish(failsOnOutput: true)
 
         wait(for: [ex], timeout: 2)
     }
@@ -139,5 +252,39 @@ class InputStreamPublisherTests: XCTestCase {
 
         wait(for: [outputEx], timeout: 2)
         wait(for: [completionEx], timeout: 0.1)
+    }
+}
+
+private final class InputStreamManualSubscriber: Subscriber {
+    typealias Input = [UInt8]
+    typealias Failure = Error
+
+    var subscription: Subscription?
+    private(set) var values = [[UInt8]]()
+    private(set) var completions = [Subscribers.Completion<Error>]()
+
+    private let initialDemand: Subscribers.Demand
+    private let demandOnValue: Subscribers.Demand
+
+    init(
+        initialDemand: Subscribers.Demand,
+        demandOnValue: Subscribers.Demand = .none
+    ) {
+        self.initialDemand = initialDemand
+        self.demandOnValue = demandOnValue
+    }
+
+    func receive(subscription: Subscription) {
+        self.subscription = subscription
+        subscription.request(initialDemand)
+    }
+
+    func receive(_ input: [UInt8]) -> Subscribers.Demand {
+        values.append(input)
+        return demandOnValue
+    }
+
+    func receive(completion: Subscribers.Completion<Error>) {
+        completions.append(completion)
     }
 }
