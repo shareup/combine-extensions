@@ -6,14 +6,27 @@ A collection of useful extensions for Apple's [Combine framework](https://develo
 
 ### Publishers
 
+- [AgainAt](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/AgainAt.swift)
 - [AnyConnectablePublisher](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/AnyConnectablePublisher.swift)
 - [BufferPassthroughSubject](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/BufferPassthroughSubject.swift)
-- [EnumeratedPublisher](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/Enumerated.swift)
+- [Distinct](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/Distinct.swift)
+- [Enumerated](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/Enumerated.swift)
 - [InputStreamPublisher](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/InputStreamPublisher.swift)
+- [MulticastLatest](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/MulticastLatest.swift)
 - [OutputStreamPublisher](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/OutputStreamPublisher.swift)
-- [ReduceLatestPublisher](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/ReduceLatest.swift)
-- [RetryIfPublisher](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/RetryIf.swift)
-- [ThrottleWhilePublisher](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/ThrottleWhile.swift)
+- [ReduceLatest](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/ReduceLatest.swift)
+- [RetryIf](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/RetryIf.swift)
+- [ThrottleWhile](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/ThrottleWhile.swift)
+
+### Extensions
+
+- [Cancellable.onCancel()](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/OnCancel.swift)
+- [Publisher.sink()](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/Publisher+Sink.swift)
+
+### Schedulers
+
+- [TestScheduler](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/TestScheduler.swift)
+- [UIScheduler](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/UIScheduler.swift)
 
 ### Thread-safe subscription management
 
@@ -25,7 +38,7 @@ A collection of useful extensions for Apple's [Combine framework](https://develo
 Add CombineExtensions to the dependencies section of your package.swift file.
 
 ```swift
-.package(url: "https://github.com/shareup/combine-extensions.git", from: "6.0.0")
+.package(url: "https://github.com/shareup/combine-extensions.git", from: "6.1.0")
 ```
 
 ## License
