@@ -115,6 +115,90 @@ final class AgainAtTests: XCTestCase {
         XCTAssertEqual(values, [1, 1])
     }
 
+    func testRepublishAtFutureDatePublishesAfterConvertedTime() {
+        let scheduler = DispatchQueue.test
+        let subject = PassthroughSubject<Int, Never>()
+        var values = [Int]()
+        var republishers = [DateRepublisher]()
+
+        let subscription = subject
+            .againAt(scheduler: scheduler)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { value, timer in
+                    values.append(value)
+                    republishers.append { timer.republish(at: timer.time(at: $0)) }
+                }
+            )
+        defer { subscription.cancel() }
+
+        subject.send(1)
+        scheduler.advance()
+
+        republishers[0](Date(timeIntervalSinceNow: 1))
+
+        scheduler.advance(by: .milliseconds(500))
+        XCTAssertEqual(values, [1])
+
+        scheduler.advance(by: .seconds(1))
+        XCTAssertEqual(values, [1, 1])
+    }
+
+    func testRepublishAtPastDateUsesCurrentSchedulerTime() {
+        let scheduler = DispatchQueue.test
+        let subject = PassthroughSubject<Int, Never>()
+        var values = [Int]()
+        var republishers = [DateRepublisher]()
+        var timerNows = [DispatchQueue.SchedulerTimeType]()
+
+        let subscription = subject
+            .againAt(scheduler: scheduler)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { value, timer in
+                    values.append(value)
+                    timerNows.append(timer.now)
+                    republishers.append { timer.republish(at: timer.time(at: $0)) }
+                }
+            )
+        defer { subscription.cancel() }
+
+        subject.send(1)
+        scheduler.advance()
+
+        let firstNow = scheduler.now
+        scheduler.advance(by: .seconds(5))
+        let republishNow = scheduler.now
+
+        republishers[0](.distantPast)
+        scheduler.advance()
+
+        XCTAssertEqual(values, [1, 1])
+        XCTAssertEqual(timerNows, [firstNow, republishNow])
+    }
+
+    func testTimeAtDistantFutureDoesNotOverflow() {
+        let scheduler = DispatchQueue.test
+        let subject = PassthroughSubject<Int, Never>()
+        var convertedTimes = [DispatchQueue.SchedulerTimeType]()
+
+        let subscription = subject
+            .againAt(scheduler: scheduler)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { _, timer in
+                    convertedTimes.append(timer.time(at: .distantFuture))
+                }
+            )
+        defer { subscription.cancel() }
+
+        subject.send(1)
+        scheduler.advance()
+
+        XCTAssertEqual(convertedTimes.count, 1)
+        XCTAssertTrue(convertedTimes[0] > scheduler.now)
+    }
+
     func testRepublishPublishesNewestUpstreamOutputAtFireTime() {
         let scheduler = DispatchQueue.test
         let subject = PassthroughSubject<Int, Never>()
@@ -642,6 +726,7 @@ final class AgainAtTests: XCTestCase {
 }
 
 private typealias Republisher = (DispatchQueue.SchedulerTimeType) -> Void
+private typealias DateRepublisher = (Date) -> Void
 
 private enum TestError: Error, Equatable {
     case failed
