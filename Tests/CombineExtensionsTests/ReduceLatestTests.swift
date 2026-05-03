@@ -79,6 +79,120 @@ class ReduceLatestTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
+    func testReduceLatestDoesNotPublishUntilDemandIsRequested() throws {
+        let pub1 = PassthroughSubject<Int, Never>()
+        let pub2 = PassthroughSubject<Character, Never>()
+        let subscriber = ReduceLatestManualSubscriber<Result, Never>()
+
+        pub1
+            .reduceLatest(pub2, Result.init)
+            .receive(subscriber: subscriber)
+
+        pub1.send(1)
+        pub1.send(2)
+        pub2.send("A")
+
+        XCTAssertEqual([], subscriber.values)
+
+        subscriber.subscription?.request(.max(1))
+
+        XCTAssertEqual([Result(2, "A")], subscriber.values)
+    }
+
+    func testReduceLatestUsesAdditionalDemandReturnedBySubscriber() throws {
+        let pub1 = PassthroughSubject<Int, Never>()
+        let pub2 = PassthroughSubject<Character, Never>()
+        let subscriber = ReduceLatestManualSubscriber<Result, Never>(
+            demandOnValue: .max(1)
+        )
+
+        pub1
+            .reduceLatest(pub2, Result.init)
+            .receive(subscriber: subscriber)
+
+        subscriber.subscription?.request(.max(1))
+        pub1.send(1)
+        pub2.send("A")
+
+        XCTAssertEqual(
+            [
+                Result(),
+                Result(1),
+                Result(1, "A"),
+            ],
+            subscriber.values
+        )
+    }
+
+    func testReduceLatestCompletesOnlyAfterBothUpstreamsFinish() throws {
+        let pub1 = PassthroughSubject<Int, Never>()
+        let pub2 = PassthroughSubject<Character, Never>()
+        let subscriber = ReduceLatestManualSubscriber<Result, Never>()
+
+        pub1
+            .reduceLatest(pub2, Result.init)
+            .receive(subscriber: subscriber)
+
+        subscriber.subscription?.request(.unlimited)
+
+        pub1.send(1)
+        pub1.send(completion: .finished)
+
+        XCTAssertEqual([], subscriber.completions)
+
+        pub2.send("A")
+        pub2.send(completion: .finished)
+
+        XCTAssertEqual(
+            [
+                Result(),
+                Result(1),
+                Result(1, "A"),
+            ],
+            subscriber.values
+        )
+        XCTAssertEqual(1, subscriber.completions.count)
+
+        guard case .finished? = subscriber.completions.first
+        else { return XCTFail("Expected finished completion") }
+    }
+
+    func testReduceLatestForwardsFailureEvenWithoutDemand() throws {
+        let pub1 = PassthroughSubject<Int, ReducerError>()
+        let pub2 = PassthroughSubject<Character, ReducerError>()
+        let subscriber = ReduceLatestManualSubscriber<Result, ReducerError>()
+
+        pub1
+            .reduceLatest(pub2, Result.init)
+            .receive(subscriber: subscriber)
+
+        pub1.send(completion: .failure(.anError))
+
+        XCTAssertEqual([], subscriber.values)
+        XCTAssertEqual([.failure(.anError)], subscriber.completions)
+    }
+
+    func testReduceLatestCancelStopsOutputAndCompletion() throws {
+        let pub1 = PassthroughSubject<Int, Never>()
+        let pub2 = PassthroughSubject<Character, Never>()
+        let subscriber = ReduceLatestManualSubscriber<Result, Never>()
+
+        pub1
+            .reduceLatest(pub2, Result.init)
+            .receive(subscriber: subscriber)
+
+        subscriber.subscription?.request(.unlimited)
+        subscriber.subscription?.cancel()
+
+        pub1.send(1)
+        pub2.send("A")
+        pub1.send(completion: .finished)
+        pub2.send(completion: .finished)
+
+        XCTAssertEqual([Result()], subscriber.values)
+        XCTAssertEqual([], subscriber.completions)
+    }
+
     func testReduceLatest3() throws {
         let pub1 = PassthroughSubject<Int, Never>()
         let pub2 = PassthroughSubject<Character, Never>()
@@ -143,6 +257,31 @@ class ReduceLatestTests: XCTestCase {
 
 private enum ReducerError: Error, Equatable {
     case anError
+}
+
+private final class ReduceLatestManualSubscriber<Input, Failure: Error>: Subscriber {
+    var subscription: Subscription?
+    private(set) var values = [Input]()
+    private(set) var completions = [Subscribers.Completion<Failure>]()
+
+    private let demandOnValue: Subscribers.Demand
+
+    init(demandOnValue: Subscribers.Demand = .none) {
+        self.demandOnValue = demandOnValue
+    }
+
+    func receive(subscription: Subscription) {
+        self.subscription = subscription
+    }
+
+    func receive(_ input: Input) -> Subscribers.Demand {
+        values.append(input)
+        return demandOnValue
+    }
+
+    func receive(completion: Subscribers.Completion<Failure>) {
+        completions.append(completion)
+    }
 }
 
 private struct Result: CustomStringConvertible, Equatable {

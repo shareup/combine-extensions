@@ -93,6 +93,99 @@ final class DistinctTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
+    func testDistinctDropsEmptyOutputsAndDuplicatesWithinSingleOutput() throws {
+        let pub = [
+            [1, 1, 2, 2],
+            [1, 2],
+            [],
+            [3, 3, 4],
+            [4, 3],
+            [5],
+        ]
+        .publisher
+        .distinct()
+
+        let expected = [
+            [1, 2],
+            [3, 4],
+            [5],
+        ]
+
+        let ex = pub.expectOutput(expected, expectToFinish: true)
+
+        wait(for: [ex], timeout: 2)
+    }
+
+    func testDistinctStateIsSharedByMultipleSubscribersToTheSamePublisherInstance() throws {
+        let subject = PassthroughSubject<[Int], Never>()
+        let publisher = subject.distinct()
+
+        var firstValues = [[Int]]()
+        var secondValues = [[Int]]()
+
+        let first = publisher.sink { firstValues.append($0) }
+        let second = publisher.sink { secondValues.append($0) }
+
+        defer {
+            first.cancel()
+            second.cancel()
+        }
+
+        subject.send([1, 2])
+        subject.send([2, 3, 4])
+        subject.send([5])
+
+        let subscriberOutputs = [firstValues, secondValues]
+        let expectedUniqueOutput = [[1, 2], [3, 4], [5]]
+
+        XCTAssertEqual(
+            1,
+            subscriberOutputs.filter { $0 == expectedUniqueOutput }.count
+        )
+        XCTAssertEqual(
+            1,
+            subscriberOutputs.filter(\.isEmpty).count
+        )
+    }
+
+    func testDistinctStateIsIndependentForSeparatePublisherInstances() throws {
+        let subject = PassthroughSubject<[Int], Never>()
+
+        let firstPublisher = subject.distinct()
+        let secondPublisher = subject.distinct()
+
+        var firstValues = [[Int]]()
+        var secondValues = [[Int]]()
+
+        let first = firstPublisher.sink { firstValues.append($0) }
+        let second = secondPublisher.sink { secondValues.append($0) }
+
+        defer {
+            first.cancel()
+            second.cancel()
+        }
+
+        subject.send([1, 2])
+        subject.send([2, 3])
+
+        XCTAssertEqual([[1, 2], [3]], firstValues)
+        XCTAssertEqual([[1, 2], [3]], secondValues)
+    }
+
+    func testDistinctPropagatesFailureAfterDroppingDuplicateOutputs() throws {
+        let subject = PassthroughSubject<[Int], DistinctError>()
+
+        let ex = subject
+            .distinct()
+            .expectOutput([[1]], completion: .failure(.failed))
+
+        subject.send([1])
+        subject.send([1])
+        subject.send(completion: .failure(.failed))
+
+        wait(for: [ex], timeout: 2)
+    }
+
     func testDistinctWithDictArraysPublisher() throws {
         let dicts: [[[String: AnyHashable]]] = [
             [["first": 1], ["second": "2"], ["third": 3.0]],
@@ -172,4 +265,8 @@ final class DistinctTests: XCTestCase {
 
         wait(for: [ex1, ex2, ex3], timeout: 2)
     }
+}
+
+private enum DistinctError: Error, Equatable {
+    case failed
 }

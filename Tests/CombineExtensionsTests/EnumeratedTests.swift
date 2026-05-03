@@ -41,6 +41,73 @@ final class EnumeratedTests: XCTestCase {
         wait(for: [ex], timeout: 2)
     }
 
+    func testEnumeratedStartsAtNegativeIndex() throws {
+        let pub = ["a", "b", "c"]
+            .publisher
+            .enumerated(startIndex: -2)
+
+        var expected = [(-2, "a"), (-1, "b"), (0, "c")]
+        let ex = pub.expectOutput(
+            { index, value in
+                let output = expected.removeFirst()
+                XCTAssertEqual(output.0, index)
+                XCTAssertEqual(output.1, value)
+
+                return expected.isEmpty ? .finished : .moreExpected
+            },
+            expectToFinish: true
+        )
+
+        wait(for: [ex], timeout: 2)
+    }
+
+    func testEnumeratedStateIsIndependentForEachSubscriber() throws {
+        let subject = PassthroughSubject<String, Never>()
+        let publisher = subject.enumerated(startIndex: 5)
+
+        var firstValues = [(Int, String)]()
+        var secondValues = [(Int, String)]()
+
+        let first = publisher.sink { firstValues.append($0) }
+        let second = publisher.sink { secondValues.append($0) }
+
+        defer {
+            first.cancel()
+            second.cancel()
+        }
+
+        subject.send("a")
+        subject.send("b")
+
+        XCTAssertEqual(firstValues.map(\.0), [5, 6])
+        XCTAssertEqual(firstValues.map(\.1), ["a", "b"])
+        XCTAssertEqual(secondValues.map(\.0), [5, 6])
+        XCTAssertEqual(secondValues.map(\.1), ["a", "b"])
+    }
+
+    func testEnumeratedPropagatesFailure() throws {
+        let subject = PassthroughSubject<String, EnumeratedError>()
+
+        var expected = [(0, "a"), (1, "b")]
+        let ex = subject
+            .enumerated()
+            .expectOutputAndFailure { index, value in
+                let output = expected.removeFirst()
+                XCTAssertEqual(output.0, index)
+                XCTAssertEqual(output.1, value)
+
+                return expected.isEmpty ? .finished : .moreExpected
+            } failureEvaluator: { error in
+                XCTAssertEqual(.failed, error)
+            }
+
+        subject.send("a")
+        subject.send("b")
+        subject.send(completion: .failure(.failed))
+
+        wait(for: [ex], timeout: 2)
+    }
+
     func testEnumeratedWithCustomStartIndexWithArrayPublisher() throws {
         let pub = [10, 11, 12, 13, 14, 15]
             .publisher
@@ -105,4 +172,8 @@ final class EnumeratedTests: XCTestCase {
 
         wait(for: [ex], timeout: 2)
     }
+}
+
+private enum EnumeratedError: Error, Equatable {
+    case failed
 }

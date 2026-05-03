@@ -3,6 +3,48 @@ import CombineExtensions
 import XCTest
 
 class OnCancelTests: XCTestCase {
+    func testOnCancelCancelsWrappedCancellableBeforeRunningBlock() throws {
+        var events = [String]()
+        let wrapped = SpyCancellable { events.append("cancel") }
+
+        let cancellable = wrapped.onCancel {
+            XCTAssertTrue(wrapped.isCancelled)
+            events.append("block")
+        }
+
+        cancellable.cancel()
+
+        XCTAssertEqual(["cancel", "block"], events)
+    }
+
+    func testOnCancelBlockRunsOnlyOnceWhenCancelledMultipleTimes() throws {
+        var cancelCount = 0
+        var blockCount = 0
+
+        let wrapped = SpyCancellable { cancelCount += 1 }
+        let cancellable = wrapped.onCancel { blockCount += 1 }
+
+        cancellable.cancel()
+        cancellable.cancel()
+
+        XCTAssertEqual(1, cancelCount)
+        XCTAssertEqual(1, blockCount)
+    }
+
+    func testOnCancelRunsWhenReturnedCancellableIsDeallocated() throws {
+        var cancelCount = 0
+        var blockCount = 0
+
+        let wrapped = SpyCancellable { cancelCount += 1 }
+        var cancellable: AnyCancellable? = wrapped.onCancel { blockCount += 1 }
+
+        XCTAssertNotNil(cancellable)
+        cancellable = nil
+
+        XCTAssertEqual(1, cancelCount)
+        XCTAssertEqual(1, blockCount)
+    }
+
     func testOnCancelIsCalledWhenCancelled() throws {
         let subject = PassthroughSubject<Int, _Err>()
 
@@ -53,3 +95,17 @@ class OnCancelTests: XCTestCase {
 }
 
 private struct _Err: Error, Equatable {}
+
+private final class SpyCancellable: Cancellable {
+    private let onCancel: () -> Void
+    private(set) var isCancelled = false
+
+    init(onCancel: @escaping () -> Void) {
+        self.onCancel = onCancel
+    }
+
+    func cancel() {
+        isCancelled = true
+        onCancel()
+    }
+}

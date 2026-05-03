@@ -4,6 +4,138 @@ import CombineTestExtensions
 import XCTest
 
 final class RetryIfTests: XCTestCase {
+    func testRetryAfterConvenienceRetriesEveryFailure() throws {
+        let scheduler = DispatchQueue.test
+
+        let ex = [1]
+            .publisher
+            .failOnOutputIndex([0], error: .two)
+            .retry(
+                after: { _ in .seconds(1) },
+                scheduler: scheduler
+            )
+            .expectOutput(1, expectToFinish: true)
+
+        scheduler.advance(by: .seconds(1))
+
+        wait(for: [ex], timeout: 1)
+    }
+
+    func testFinishedCompletionDoesNotRetry() throws {
+        let scheduler = DispatchQueue.test
+        var attempts = 0
+
+        let publisher = Deferred {
+            attempts += 1
+            return Empty<Int, Err>(completeImmediately: true)
+        }
+
+        let ex = publisher
+            .retryIf(
+                { _ in true },
+                after: .seconds(1),
+                scheduler: scheduler
+            )
+            .expectToFinish(failsOnOutput: true)
+
+        scheduler.run()
+
+        wait(for: [ex], timeout: 1)
+        XCTAssertEqual(1, attempts)
+    }
+
+    func testRejectedFailureAfterRetryCompletesWithRejectedFailure() throws {
+        let scheduler = DispatchQueue.test
+        var attempts = 0
+
+        let publisher = Deferred {
+            attempts += 1
+            return Fail<Int, Err>(error: attempts == 1 ? .one : .two)
+        }
+
+        let ex = publisher
+            .retryIf(
+                { $0 == .one },
+                after: .seconds(1),
+                scheduler: scheduler
+            )
+            .expectFailure(.two, failsOnOutput: true)
+
+        scheduler.advance(by: .seconds(1))
+
+        wait(for: [ex], timeout: 1)
+        XCTAssertEqual(2, attempts)
+    }
+
+    func testPredicateAndIntervalReceiveFailuresAndRetryCounts() throws {
+        let scheduler = DispatchQueue.test
+
+        var attempts = 0
+        var predicateErrors = [Err]()
+        var intervalCounts = [Int]()
+
+        let publisher = Deferred {
+            attempts += 1
+            if attempts < 3 {
+                return Fail<Int, Err>(error: .one).eraseToAnyPublisher()
+            } else {
+                return Just(42).setFailureType(to: Err.self).eraseToAnyPublisher()
+            }
+        }
+
+        let ex = publisher
+            .retryIf(
+                {
+                    predicateErrors.append($0)
+                    return true
+                },
+                after: {
+                    intervalCounts.append($0)
+                    return .seconds($0)
+                },
+                scheduler: scheduler
+            )
+            .expectOutput(42, expectToFinish: true)
+
+        scheduler.advance(by: .seconds(1))
+        scheduler.advance(by: .seconds(2))
+
+        wait(for: [ex], timeout: 1)
+        XCTAssertEqual([.one, .one], predicateErrors)
+        XCTAssertEqual([1, 2], intervalCounts)
+    }
+
+    func testScheduledRetryAfterCancellationDoesNotPublishOutputOrCompletion() throws {
+        let scheduler = DispatchQueue.test
+        var attempts = 0
+        var values = [Int]()
+        var completion: Subscribers.Completion<Err>?
+
+        let publisher = Deferred {
+            attempts += 1
+            return Fail<Int, Err>(error: .one)
+        }
+
+        let subscription = publisher
+            .retryIf(
+                { $0 == .one },
+                after: .seconds(1),
+                scheduler: scheduler
+            )
+            .sink(
+                receiveCompletion: { completion = $0 },
+                receiveValue: { values.append($0) }
+            )
+
+        XCTAssertEqual(1, attempts)
+
+        subscription.cancel()
+        scheduler.advance(by: .seconds(1))
+
+        XCTAssertEqual([], values)
+        XCTAssertNil(completion)
+    }
+
     func testRetryIfAfterFixedInterval() throws {
         let scheduler = DispatchQueue.test
 
