@@ -135,12 +135,12 @@ final class AgainAtTests: XCTestCase {
         subject.send(1)
         scheduler.advance()
 
-        republishers[0](Date(timeIntervalSinceNow: 1))
-
-        scheduler.advance(by: .milliseconds(500))
-        XCTAssertEqual(values, [1])
+        republishers[0](Date(timeIntervalSinceNow: 2))
 
         scheduler.advance(by: .seconds(1))
+        XCTAssertEqual(values, [1])
+
+        scheduler.advance(by: .seconds(2))
         XCTAssertEqual(values, [1, 1])
     }
 
