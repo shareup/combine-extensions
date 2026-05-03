@@ -50,18 +50,26 @@ public extension Publishers.AgainAt {
     final class Timer: @unchecked Sendable {
         public let now: Context.SchedulerTimeType
 
+        private let scheduler: Context
         private let onRepublishAt: @Sendable (Context.SchedulerTimeType) -> Void
 
         fileprivate init(
             now: Context.SchedulerTimeType,
+            scheduler: Context,
             onRepublishAt: @escaping @Sendable (Context.SchedulerTimeType) -> Void
         ) {
             self.now = now
+            self.scheduler = scheduler
             self.onRepublishAt = onRepublishAt
         }
 
         public func republish(at time: Context.SchedulerTimeType) {
             onRepublishAt(time)
+        }
+
+        public func time(at date: Date) -> Context.SchedulerTimeType {
+            let nanoseconds = date.timeIntervalSinceNow.nanoseconds
+            return scheduler.now.advanced(by: .nanoseconds(nanoseconds))
         }
     }
 }
@@ -300,6 +308,7 @@ private final class AgainAtSubscription<Upstream, Context, Downstream>:
             case let .value(downstream, output):
                 let timer = Publishers.AgainAt<Upstream, Context>.Timer(
                     now: scheduler.now,
+                    scheduler: scheduler,
                     onRepublishAt: { [weak self] time in
                         self?.republish(at: time)
                     }
@@ -342,3 +351,16 @@ private final class AgainAtSubscription<Upstream, Context, Downstream>:
         }
     }
 }
+
+private extension TimeInterval {
+    var nanoseconds: Int {
+        guard self > 0 else { return 0 }
+        let nanoseconds = (self * 1_000_000_000).rounded(.up)
+        guard nanoseconds < Double(maxNanoseconds) else {
+            return maxNanoseconds
+        }
+        return Int(nanoseconds)
+    }
+}
+
+private let maxNanoseconds = Int.max - 1024
