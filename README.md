@@ -27,6 +27,7 @@ A collection of useful extensions for Apple's [Combine framework](https://develo
 
 - [TestScheduler](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/TestScheduler.swift)
 - [UIScheduler](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/UIScheduler.swift)
+- [WallClockScheduler](https://github.com/shareup/combine-extensions/blob/main/Sources/CombineExtensions/WallClockScheduler.swift)
 
 ### Thread-safe subscription management
 
